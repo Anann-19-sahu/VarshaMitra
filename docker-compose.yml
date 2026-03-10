@@ -1,0 +1,165 @@
+# ============================================================
+# VarshaMitra – Docker Compose
+# Production Deployment
+# ============================================================
+version: "3.9"
+
+services:
+
+  # ── FastAPI Backend ──────────────────────────────────────
+  api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: varsha_api
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql://varsha:monsoon2024@db:5432/varsha_mitra
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_URL=http://ollama:11434
+      - SECRET_KEY=varsha_mitra_secret_key_change_in_production
+      - ENVIRONMENT=production
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── Celery Worker ────────────────────────────────────────
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: varsha_worker
+    command: celery -A tasks worker --loglevel=info --concurrency=4
+    environment:
+      - DATABASE_URL=postgresql://varsha:monsoon2024@db:5432/varsha_mitra
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── Celery Beat (Scheduler) ──────────────────────────────
+  beat:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: varsha_beat
+    command: celery -A tasks beat --loglevel=info
+    environment:
+      - DATABASE_URL=postgresql://varsha:monsoon2024@db:5432/varsha_mitra
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - db
+      - redis
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── PostgreSQL + PostGIS ─────────────────────────────────
+  db:
+    image: postgis/postgis:15-3.4
+    container_name: varsha_db
+    environment:
+      - POSTGRES_DB=varsha_mitra
+      - POSTGRES_USER=varsha
+      - POSTGRES_PASSWORD=monsoon2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U varsha -d varsha_mitra"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── Redis (Celery Broker) ────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: varsha_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── Ollama (Local LLM) ───────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: varsha_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+    restart: unless-stopped
+    networks:
+      - varsha_net
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 10 && ollama pull llama3.2 && wait"]
+
+  # ── Nginx (Reverse Proxy + Frontend) ────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: varsha_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+      - ./deploy/nginx.conf:/etc/nginx/nginx.conf
+      - ./deploy/ssl:/etc/nginx/ssl
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+  # ── Celery Flower (Monitoring) ───────────────────────────
+  flower:
+    image: mher/flower:2.0.1
+    container_name: varsha_flower
+    ports:
+      - "5555:5555"
+    environment:
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - FLOWER_PORT=5555
+    depends_on:
+      - redis
+    restart: unless-stopped
+    networks:
+      - varsha_net
+
+volumes:
+  postgres_data:
+  ollama_data:
+
+networks:
+  varsha_net:
+    driver: bridge

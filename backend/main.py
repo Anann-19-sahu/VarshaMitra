@@ -590,45 +590,19 @@ async def get_live_weather():
 
 @app.get("/api/v1/alerts/auto")
 async def get_auto_alerts():
-    """Auto-generate flood alerts based on live rainfall data."""
-    live_weather = await weather_svc.fetch_all_cities()
+    """Auto-generate flood alerts based on live-rescored ward data."""
+    # Use the same live-rescored ward data as the map markers
+    wards = await get_all_wards()
     auto_alerts = []
     alert_id = 100
-
-    # Try DB first, fall back to in-memory
-    wards = None
-    try:
-        conn = await asyncpg.connect(DATABASE_URL)
-        query = """
-            SELECT w.id, w.name, w.city,
-                   lws.elevation_m, lws.drainage_pct, lws.flood_events_5yr
-            FROM wards w
-            JOIN latest_ward_scores lws ON lws.id = w.id
-            ORDER BY w.city, w.id
-        """
-        rows = await conn.fetch(query)
-        await conn.close()
-        wards = [dict(r) for r in rows]
-    except Exception:
-        wards = _get_fallback_wards()
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
 
     for ward in wards:
+        score = ward.get("score", 50)
+        rc = ward.get("risk_class", "SAFE_ZONE")
         city_name = ward.get("city", "")
-        if city_name not in live_weather:
-            continue
-
-        live_rain = live_weather[city_name]["rainfall_mm"]
-        drainage_pct = float(ward.get("drainage_pct", 50))
-        flood_events = int(ward.get("flood_events_5yr", ward.get("flood_events", 0)))
-
-        rescored = compute_flood_readiness_score(
-            rainfall_mm=live_rain,
-            elevation_m=float(ward.get("elevation_m", 50)),
-            drainage_pct=drainage_pct,
-            flood_events=flood_events,
-        )
-        score = rescored["score"]
-        rc = rescored["risk_class"]
+        live_rain = ward.get("rainfall_mm", 0)
+        weather_src = ward.get("weather_source", "fallback")
 
         if rc == "RED_ALERT":
             severity = "CRITICAL"
@@ -645,13 +619,13 @@ async def get_auto_alerts():
             "score": score,
             "risk_class": rc,
             "rainfall_mm": live_rain,
-            "weather_source": live_weather[city_name]["source"],
+            "weather_source": weather_src,
             "message": (
                 f"{'⛔ CRITICAL' if severity == 'CRITICAL' else '⚠ WARNING'}: "
                 f"{ward.get('name')}, {city_name} — Score {score}/100. "
                 f"Live rainfall: {live_rain:.1f}mm."
             ),
-            "generated_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "generated_at": now_iso,
         })
         alert_id += 1
 

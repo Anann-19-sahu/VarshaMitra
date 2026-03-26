@@ -2,7 +2,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VarshaMitra – Pre-Monsoon Flood Intelligence Platform</title>
+<title>c</title>
 <meta name="theme-color" content="#050d1a">
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -414,13 +414,24 @@ async function loadAlerts() {
   // Prefer live auto-alerts (recomputed from live rainfall) over stored alerts
   try {
     const data = await apiFetch('/api/v1/alerts/auto');
-    ALERTS = (data || []).map(a => ({
-      type:  a.severity === 'CRITICAL' ? 'critical' : 'watch',
-      title: `${a.severity === 'CRITICAL' ? 'RED ALERT' : 'WATCH'} – ${a.ward}, ${a.city}`,
-      sub:   `Score: ${a.score} · ${a.message?.split('—')[1]?.trim() ?? a.risk_class}`,
-      time:  'live',
-      score: a.score,
-    }));
+    ALERTS = (data || []).map(a => {
+      // Show real timestamp instead of hardcoded 'live'
+      let timeLabel = 'live';
+      if (a.generated_at) {
+        const d = new Date(a.generated_at);
+        const now = new Date();
+        const diffMin = Math.round((now - d) / 60000);
+        timeLabel = diffMin < 1 ? 'just now' : diffMin < 60 ? `${diffMin}m ago` : d.toLocaleTimeString('en-IN', {hour:'2-digit', minute:'2-digit'});
+      }
+      const srcBadge = a.weather_source === 'open_meteo' ? '🟢 Live' : '🟡 Cached';
+      return {
+        type:  a.severity === 'CRITICAL' ? 'critical' : 'watch',
+        title: `${a.severity === 'CRITICAL' ? 'RED ALERT' : 'WATCH'} – ${a.ward}, ${a.city}`,
+        sub:   `Score: ${a.score} · ${a.message?.split('—')[1]?.trim() ?? a.risk_class}`,
+        time:  `${timeLabel} · ${srcBadge}`,
+        score: a.score,
+      };
+    });
   } catch (err) {
     showApiError('Alerts', err);
     ALERTS = [];
@@ -534,19 +545,19 @@ async function doEnterApp() {
   renderTopWards();
   showToast('success', `✓ VarshaMitra loaded. ${WARDS.length} wards · Live rainfall active.`);
 
-  // Poll for fresh scores every 5 minutes
+  // Poll for fresh scores every 60 seconds for live updates
   setInterval(async () => {
     try {
       await loadWards();
       await loadAlerts();
+      await loadAnalyticsSummary();
       renderTopWards();
       renderAlertFeed();
       renderWardMarkers(currentFilter);
-      showToast('info', '🔄 Live data refreshed');
     } catch (err) {
       showApiError('Auto-refresh', err);
     }
-  }, 5 * 60 * 1000);
+  }, 60 * 1000);
 }
 
 function doLogout() {

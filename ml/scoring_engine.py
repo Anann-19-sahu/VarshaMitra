@@ -89,29 +89,49 @@ class FloodDataETL:
             raise RuntimeError(f"Failed to load ward boundaries for {city} from PostGIS: {exc}")
 
     def load_imd_rainfall(self) -> pd.DataFrame:
-        """Load IMD monthly rainfall dataset."""
+        """
+        Load IMD monthly rainfall dataset from CSV.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the CSV is absent. Download the station-level monthly dataset
+            from https://imdpune.gov.in and place it at:
+            data/rainfall/imd_monthly_rainfall.csv
+
+            Expected columns: date (YYYY-MM-DD), city, rainfall_mm, stations
+        ValueError
+            If required columns are missing from the CSV.
+        RuntimeError
+            If the CSV exists but cannot be parsed.
+        """
         path = self.data_dir / "rainfall" / "imd_monthly_rainfall.csv"
-        if path.exists():
+        if not path.exists():
+            raise FileNotFoundError(
+                f"IMD rainfall data not found at '{path}'. "
+                "Download the station-level monthly CSV from "
+                "https://imdpune.gov.in and place it at "
+                "data/rainfall/imd_monthly_rainfall.csv"
+            )
+        try:
             df = pd.read_csv(path)
-            df["month"] = pd.to_datetime(df["date"]).dt.month
-            df["year"] = pd.to_datetime(df["date"]).dt.year
-            return df
-        # Synthetic rainfall data
-        np.random.seed(42)
-        cities = ["Mumbai", "Pune", "Delhi", "Chennai", "Kolkata"]
-        data = []
-        for city in cities:
-            base = {"Mumbai": 220, "Pune": 145, "Delhi": 98, "Chennai": 192, "Kolkata": 200}[city]
-            for month in range(1, 13):
-                seasonal_factor = max(0, np.sin((month - 3) * np.pi / 6))
-                data.append({
-                    "city": city,
-                    "month": month,
-                    "year": 2024,
-                    "rainfall_mm": round(base * seasonal_factor + np.random.normal(0, 15), 1),
-                    "stations": np.random.randint(3, 12)
-                })
-        return pd.DataFrame(data)
+        except Exception as exc:
+            logger.error(f"[ETL] Failed to parse IMD rainfall CSV at '{path}': {exc}", exc_info=True)
+            raise RuntimeError(
+                f"IMD rainfall CSV exists at '{path}' but could not be parsed: {exc}"
+            ) from exc
+
+        missing = {"date", "city", "rainfall_mm"} - set(df.columns)
+        if missing:
+            raise ValueError(
+                f"IMD rainfall CSV at '{path}' is missing required columns: {missing}. "
+                "Expected at minimum: date (YYYY-MM-DD), city, rainfall_mm."
+            )
+
+        df["month"] = pd.to_datetime(df["date"]).dt.month
+        df["year"]  = pd.to_datetime(df["date"]).dt.year
+        logger.info(f"[ETL] Loaded {len(df)} IMD rainfall rows from '{path}'")
+        return df
 
     def load_elevation_dem(self, ward_geometry, lat: float = None, lng: float = None) -> dict:
         """
@@ -164,14 +184,30 @@ class FloodDataETL:
             except Exception as e:
                 logger.warning(f"[ETL] Local DEM extraction failed: {e}")
 
-        # ── 3. Synthetic fallback ─────────────────────────────────────
-        synthetic_elev = float(np.random.uniform(5, 200))
+        # ── 3. Deterministic fallback ─────────────────────────────────
+        # Use latitude-band heuristics (same approach as ElevationService)
+        # rather than random values so repeated calls return stable features.
+        if lat is not None:
+            if 12.5 <= lat <= 13.5:
+                synthetic_elev = 6.0    # Chennai coast
+            elif 18.4 <= lat <= 18.7:
+                synthetic_elev = 550.0  # Pune plateau
+            elif 19.0 <= lat <= 19.3:
+                synthetic_elev = 10.0   # Mumbai coast
+            elif 22.4 <= lat <= 22.7:
+                synthetic_elev = 7.0    # Kolkata delta
+            elif 28.5 <= lat <= 29.0:
+                synthetic_elev = 210.0  # Delhi plain
+            else:
+                synthetic_elev = 50.0   # generic mid-range
+        else:
+            synthetic_elev = 50.0
         return {
             "mean_elevation": synthetic_elev,
-            "min_elevation":  float(np.random.uniform(2, 50)),
-            "std_elevation":  float(np.random.uniform(1, 30)),
+            "min_elevation":  round(synthetic_elev * 0.6, 2),
+            "std_elevation":  round(synthetic_elev * 0.15, 2),
             "low_lying_pct":  self._estimate_low_lying_pct(synthetic_elev),
-            "source":         "synthetic",
+            "source":         "synthetic_deterministic",
         }
 
     @staticmethod
@@ -187,12 +223,36 @@ class FloodDataETL:
 
     def load_drainage_network(self, ward_gdf: gpd.GeoDataFrame) -> pd.DataFrame:
         """
-        Compute drainage density for each ward from OSM drainage shapefile.
+        Compute drainage density for each ward from the OSM drainage shapefile.
+
         Drainage density = total drain length (m) / ward area (km²)
+
+        Raises
+        ------
+        FileNotFoundError
+            If the shapefile is absent. Export OSM waterway/drain ways for
+            India from https://download.geofabrik.de or via Overpass and
+            place the result at data/drainage/india_drains_osm.shp
+        RuntimeError
+            If the shapefile exists but cannot be read or spatially joined.
         """
         drain_path = self.data_dir / "drainage" / "india_drains_osm.shp"
-        if drain_path.exists():
+        if not drain_path.exists():
+            raise FileNotFoundError(
+                f"OSM drainage shapefile not found at '{drain_path}'. "
+                "Export India waterway/drain ways from "
+                "https://download.geofabrik.de or via the Overpass API "
+                "and place the shapefile at data/drainage/india_drains_osm.shp"
+            )
+        try:
             drains = gpd.read_file(drain_path).to_crs("EPSG:32643")
+        except Exception as exc:
+            logger.error(f"[ETL] Failed to read drainage shapefile at '{drain_path}': {exc}", exc_info=True)
+            raise RuntimeError(
+                f"OSM drainage shapefile at '{drain_path}' could not be read: {exc}"
+            ) from exc
+
+        try:
             wards_proj = ward_gdf.to_crs("EPSG:32643")
             joined = gpd.sjoin(drains, wards_proj, how="inner", predicate="intersects")
             drain_lengths = joined.groupby("index_right").geometry.apply(
@@ -201,14 +261,19 @@ class FloodDataETL:
             drain_lengths.columns = ["ward_idx", "drain_length_m"]
             ward_areas = wards_proj.geometry.area / 1e6  # km²
             drain_lengths["area_km2"] = ward_areas[drain_lengths["ward_idx"]].values
-            drain_lengths["drainage_density"] = drain_lengths["drain_length_m"] / (drain_lengths["area_km2"] * 1000)
+            drain_lengths["drainage_density"] = (
+                drain_lengths["drain_length_m"] / (drain_lengths["area_km2"] * 1000)
+            )
+            logger.info(
+                f"[ETL] Computed drainage density for {len(drain_lengths)} wards "
+                f"from '{drain_path}'"
+            )
             return drain_lengths
-        # Synthetic drainage
-        return pd.DataFrame({
-            "ward_idx": range(len(ward_gdf)),
-            "drain_length_m": np.random.uniform(500, 15000, len(ward_gdf)),
-            "drainage_density": np.random.uniform(0.1, 0.9, len(ward_gdf))
-        })
+        except Exception as exc:
+            logger.error(f"[ETL] Drainage spatial join failed: {exc}", exc_info=True)
+            raise RuntimeError(
+                f"Drainage density computation failed during spatial join: {exc}"
+            ) from exc
 
     def calculate_drainage_score(self, osm_data: dict) -> float:
         """
@@ -240,58 +305,104 @@ class FloodDataETL:
         return float(np.clip((total_length_m / 300000.0) * 100.0, 0.0, 100.0))
 
     def load_flood_history(self) -> gpd.GeoDataFrame:
-        """Load NDMA historical flood event data."""
+        """
+        Load NDMA historical flood event data from GeoJSON.
+
+        Raises
+        ------
+        FileNotFoundError
+            If the GeoJSON is absent. Download the NDMA Flood Hazard Atlas from
+            https://ndma.gov.in/Resources/flood-hazard-atlas and place it at:
+            data/flood_history/ndma_flood_hazard.geojson
+
+            Expected fields: geometry (Point/Polygon), year, severity, city
+        RuntimeError
+            If the GeoJSON exists but cannot be read.
+        """
         path = self.data_dir / "flood_history" / "ndma_flood_hazard.geojson"
-        if path.exists():
-            return gpd.read_file(path)
-        # Synthetic flood history
-        points = [Point(72.85 + np.random.normal(0, 0.3), 19.07 + np.random.normal(0, 0.2))
-                  for _ in range(50)]
-        return gpd.GeoDataFrame({
-            "geometry": points,
-            "year": np.random.randint(2019, 2024, 50),
-            "severity": np.random.choice(["major", "moderate", "minor"], 50),
-            "city": np.random.choice(["Mumbai", "Chennai", "Kolkata"], 50)
-        }, crs="EPSG:4326")
+        if not path.exists():
+            raise FileNotFoundError(
+                f"NDMA flood hazard data not found at '{path}'. "
+                "Download the Flood Hazard Atlas from "
+                "https://ndma.gov.in/Resources/flood-hazard-atlas "
+                "and place it at data/flood_history/ndma_flood_hazard.geojson"
+            )
+        try:
+            gdf = gpd.read_file(path)
+            logger.info(f"[ETL] Loaded {len(gdf)} NDMA flood history records from '{path}'")
+            return gdf
+        except Exception as exc:
+            logger.error(f"[ETL] Failed to read NDMA flood GeoJSON at '{path}': {exc}", exc_info=True)
+            raise RuntimeError(
+                f"NDMA flood GeoJSON at '{path}' could not be read: {exc}"
+            ) from exc
 
     def build_features(self, wards: gpd.GeoDataFrame, city: str) -> pd.DataFrame:
         """
         Spatial join and feature engineering pipeline.
         Returns DataFrame with all flood risk features per ward.
+
+        All four data dimensions are loaded once and then joined onto
+        each ward row — no np.random values are introduced here.
         """
         logger.info(f"Building features for {city}...")
+
+        # ── 1. Rainfall ───────────────────────────────────────────────
         rainfall_df = self.load_imd_rainfall()
         city_rain = rainfall_df[rainfall_df.city == city]
-        peak_rainfall = city_rain["rainfall_mm"].max() if not city_rain.empty else 180
+        peak_rainfall = float(city_rain["rainfall_mm"].max()) if not city_rain.empty else 180.0
 
-        # Flood history from ReliefWeb (major flood reports, approximated as flood_events_5yr)
+        # ── 2. Drainage (loaded once for the entire ward set) ─────────
+        # load_drainage_network returns a DataFrame indexed by ward_idx with
+        # a `drainage_density` column derived from real OSM geometry (or the
+        # shapefile fallback).  We build a dict keyed by ward positional index
+        # so the per-ward loop below can look values up in O(1).
+        drainage_df = self.load_drainage_network(wards)
+        drainage_by_idx: dict[int, float] = {}
+        if not drainage_df.empty and "ward_idx" in drainage_df.columns:
+            for _, drow in drainage_df.iterrows():
+                drainage_by_idx[int(drow["ward_idx"])] = float(drow["drainage_density"])
+
+        # ── 3. Flood history from ReliefWeb ───────────────────────────
         try:
             flood_payload = asyncio.run(fetch_reliefweb_history(city))
             flood_events_5yr = int(flood_payload.get("flood_events_5yr", 0))
         except RuntimeError:
-            # If an event loop is already running (unlikely for this script), keep 0 as a safe default.
+            # Already inside a running event loop (e.g. called from async context).
             flood_events_5yr = 0
 
+        # ── 4. Per-ward feature assembly ──────────────────────────────
         features = []
-        for idx, ward in wards.iterrows():
-            # Elevation features from DEM
-            elev = self.load_elevation_dem(ward.geometry)
-            # Drainage
-            drainage_density = np.random.uniform(0.1, 0.9)
-            # Flood history (spatial count)
-            flood_hist = flood_events_5yr
+        for pos_idx, (idx, ward) in enumerate(wards.iterrows()):
+            # Elevation: use ward centroid lat/lng when available so the
+            # OpenTopoData API path in load_elevation_dem() is exercised.
+            centroid = ward.geometry.centroid
+            elev = self.load_elevation_dem(
+                ward.geometry,
+                lat=centroid.y,
+                lng=centroid.x,
+            )
+
+            # Drainage: use the value loaded by load_drainage_network().
+            # Fall back to the neutral midpoint only when the loader
+            # returned nothing for this ward (e.g. no OSM ways intersect).
+            drainage_density = drainage_by_idx.get(pos_idx, 0.5)
 
             feat = {
                 "ward_id": idx,
                 "city": city,
-                "rainfall_intensity": peak_rainfall + np.random.normal(0, 20),
+                # Rainfall: use the real peak value with no synthetic noise.
+                "rainfall_intensity": peak_rainfall,
                 "mean_elevation": elev["mean_elevation"],
                 "min_elevation": elev["min_elevation"],
                 "low_lying_pct": elev["low_lying_pct"],
+                # Drainage: sourced from load_drainage_network(), not random.
                 "drainage_density": drainage_density,
                 "drainage_capacity_pct": drainage_density * 100,
-                "flood_events_5yr": flood_hist,
-                "area_km2": ward.geometry.area * 12321,  # approx conversion
+                # Flood history: sourced from ReliefWeb, same value for all
+                # wards in the city (city-level granularity from the API).
+                "flood_events_5yr": flood_events_5yr,
+                "area_km2": ward.geometry.area * 12321,  # approx deg² → km²
             }
             features.append(feat)
 
@@ -304,6 +415,20 @@ class FloodRiskPredictor:
     XGBoost-based flood risk classification model.
     Predicts HIGH_RISK (1) vs LOW_RISK (0) for each ward.
     Features: rainfall, elevation, drainage, flood_history
+
+    Training data priority
+    ----------------------
+    1. Caller supplies X, y directly              → use as-is
+    2. PostgreSQL `flood_scores` table has ≥ MIN_REAL_SAMPLES rows
+                                                  → load_real_training_data()
+    3. Neither source is available                → generate_training_data()
+                                                    (SYNTHETIC LAST RESORT —
+                                                     logged loudly as a warning)
+
+    The `training_data_source` key in the metrics dict returned by train()
+    always records which path was taken so callers can surface it in dashboards.
+    Predictions made by a synthetically-trained model are flagged with
+    `trained_on_synthetic=True` in every predict() response.
     """
 
     FEATURES = [
@@ -317,30 +442,152 @@ class FloodRiskPredictor:
     ]
     MODEL_PATH = MODEL_DIR / "xgboost_flood_risk.pkl"
 
+    # Minimum labelled rows from the DB before we trust real data over synthetic.
+    # Below this threshold the DB sample is too small for a reliable 80/20 split.
+    MIN_REAL_SAMPLES = 100
+
     def __init__(self):
         self.model = None
         self.scaler = StandardScaler()
         self.is_trained = False
+        # Tracks which data source was used so predict() can surface a warning.
+        self._training_data_source: str = "unknown"
 
-    def generate_training_data(self, n_samples: int = 5000) -> Tuple[pd.DataFrame, np.ndarray]:
+    # ------------------------------------------------------------------
+    # Data source 1 (preferred): real labelled rows from PostgreSQL
+    # ------------------------------------------------------------------
+
+    def load_real_training_data(self) -> Tuple[pd.DataFrame, np.ndarray]:
         """
-        Generate training data for XGBoost.
+        Load labelled training data from the `flood_scores` table.
 
-        Key refactor:
-        - flood_events_5yr comes from ReliefWeb via `disaster_service.py`
-          (major flood reports count, approximated by the service).
+        Each historical score row already has all four feature dimensions
+        (rainfall_mm, elevation_m, drainage_pct, flood_events_5yr) and a
+        rule-based readiness score.  We derive the binary label from
+        risk_class so the XGBoost model learns from *observed* Indian city
+        conditions, not from random sampling.
+
+        Returns (X, y) where y=1 means HIGH_RISK (RED_ALERT or WATCH_ZONE).
+
+        Raises
+        ------
+        RuntimeError  if the DB is unreachable or fewer than MIN_REAL_SAMPLES
+                      rows are available (caller falls through to synthetic).
         """
-        np.random.seed(42)
-
         database_url = os.getenv(
             "DATABASE_URL",
             "postgresql://varsha:monsoon2024@localhost:5432/varsha_mitra",
         )
 
-        async def _fetch_city_flood_counts() -> tuple[list[str], dict[str, int]]:
+        async def _query() -> list[dict]:
             conn = await asyncpg.connect(database_url)
             try:
-                rows = await conn.fetch("SELECT DISTINCT city FROM wards WHERE city IS NOT NULL")
+                rows = await conn.fetch(
+                    """
+                    SELECT
+                        fs.rainfall_mm          AS rainfall_intensity,
+                        fs.elevation_m          AS mean_elevation,
+                        -- min_elevation proxy: 60 % of mean (same ratio used in ETL)
+                        fs.elevation_m * 0.6    AS min_elevation,
+                        -- low_lying_pct: re-derive from elevation using the same
+                        -- step-function used everywhere else in the codebase
+                        CASE
+                            WHEN fs.elevation_m <= 0   THEN 95.0
+                            WHEN fs.elevation_m <= 5   THEN 80.0
+                            WHEN fs.elevation_m <= 10  THEN 55.0
+                            WHEN fs.elevation_m <= 20  THEN 30.0
+                            WHEN fs.elevation_m <= 50  THEN 15.0
+                            WHEN fs.elevation_m <= 100 THEN  5.0
+                            ELSE 1.0
+                        END                     AS low_lying_pct,
+                        -- drainage_density: convert 0-100 pct score → 0-1 density
+                        fs.drainage_pct / 100.0 AS drainage_density,
+                        fs.flood_events_5yr,
+                        -- area_km2: pull from wards table; default 10 if missing
+                        COALESCE(w.area_km2, 10.0) AS area_km2,
+                        fs.risk_class
+                    FROM flood_scores fs
+                    JOIN wards w ON w.id = fs.ward_id
+                    -- Only rows where all four core features are non-null
+                    WHERE fs.rainfall_mm    IS NOT NULL
+                      AND fs.elevation_m   IS NOT NULL
+                      AND fs.drainage_pct  IS NOT NULL
+                      AND fs.flood_events_5yr IS NOT NULL
+                    ORDER BY fs.computed_at DESC
+                    """
+                )
+                return [dict(r) for r in rows]
+            finally:
+                await conn.close()
+
+        try:
+            rows = asyncio.run(_query())
+        except RuntimeError:
+            # Already inside a running event loop.
+            raise RuntimeError("Cannot run DB query: already inside an event loop.")
+
+        if len(rows) < self.MIN_REAL_SAMPLES:
+            raise RuntimeError(
+                f"Only {len(rows)} labelled rows in flood_scores "
+                f"(need ≥ {self.MIN_REAL_SAMPLES}). Falling through to synthetic."
+            )
+
+        df = pd.DataFrame(rows)
+        # Binary label: RED_ALERT or WATCH_ZONE → HIGH_RISK (1), else LOW_RISK (0)
+        y = (df["risk_class"].isin(["RED_ALERT", "WATCH_ZONE"])).astype(int).values
+        X = df[self.FEATURES]
+        logger.info(
+            f"[Predictor] Loaded {len(df)} real training rows from PostgreSQL "
+            f"(HIGH_RISK: {y.sum()}, LOW_RISK: {(1-y).sum()})"
+        )
+        return X, y
+
+    # ------------------------------------------------------------------
+    # Data source 2 (last resort): fully synthetic samples
+    # ------------------------------------------------------------------
+
+    def generate_training_data(self, n_samples: int = 5000) -> Tuple[pd.DataFrame, np.ndarray]:
+        """
+        *** SYNTHETIC LAST RESORT — no real data was available. ***
+
+        Generates random feature vectors and labels them with the same
+        weighted formula used by the rule-based scorer.  A model trained on
+        this data learns the rule-based formula and provides ZERO additional
+        ML value — it will produce nearly identical results to calling
+        compute_readiness_score() directly.
+
+        This path exists only to keep the system functional when the database
+        is empty (e.g. fresh deployment, CI environment).  It must NEVER be
+        used in production once real flood_scores rows are available.
+
+        The returned tuple is tagged so train() can record and surface the
+        `training_data_source="synthetic"` warning in metrics and predictions.
+        """
+        _SYNTHETIC_WARNING = (
+            "SYNTHETIC TRAINING DATA IN USE — XGBoost model is being trained on "
+            "randomly generated samples labelled by the rule-based formula. "
+            "The model adds no ML value over the rule-based scorer. "
+            "Populate the flood_scores table with real ward observations and "
+            "retrain to obtain a meaningful ML model."
+        )
+        logger.warning(_SYNTHETIC_WARNING)
+        warnings.warn(_SYNTHETIC_WARNING, UserWarning, stacklevel=3)
+
+        np.random.seed(42)
+
+        # Pull real flood-event counts from ReliefWeb so at least one dimension
+        # (flood history) is anchored to real data even in the synthetic path.
+        database_url = os.getenv(
+            "DATABASE_URL",
+            "postgresql://varsha:monsoon2024@localhost:5432/varsha_mitra",
+        )
+
+        async def _fetch_city_flood_counts() -> Tuple[list, dict]:
+            conn = await asyncpg.connect(database_url)
+            try:
+                rows = await conn.fetch(
+                    "SELECT DISTINCT city FROM wards WHERE city IS NOT NULL"
+                )
                 cities = [r["city"] for r in rows if r.get("city")]
                 counts: dict[str, int] = {}
                 for c in cities:
@@ -353,40 +600,86 @@ class FloodRiskPredictor:
         try:
             cities, flood_counts = asyncio.run(_fetch_city_flood_counts())
         except RuntimeError:
-            # If already running inside an event loop, avoid crashing training here.
             cities, flood_counts = [], {}
 
+        # If we cannot reach the DB at all, use hard-coded city baseline counts
+        # so the synthetic labels are at least marginally realistic.
         if not cities:
-            raise RuntimeError("No cities available to build disaster-informed training data.")
+            logger.warning(
+                "[Predictor] DB unreachable during synthetic data generation; "
+                "using hard-coded flood-event baselines."
+            )
+            cities = ["Mumbai", "Pune", "Delhi", "Chennai", "Kolkata"]
+            flood_counts = {"Mumbai": 4, "Pune": 2, "Delhi": 3, "Chennai": 5, "Kolkata": 4}
 
         city_choices = np.random.choice(cities, size=n_samples)
         flood_events = [int(flood_counts.get(c, 0)) for c in city_choices]
 
         X = pd.DataFrame({
             "rainfall_intensity": np.random.uniform(50, 350, n_samples),
-            "mean_elevation": np.random.uniform(2, 700, n_samples),
-            "min_elevation": np.random.uniform(1, 200, n_samples),
-            "low_lying_pct": np.random.uniform(0, 90, n_samples),
-            "drainage_density": np.random.uniform(0.05, 0.95, n_samples),
-            "flood_events_5yr": flood_events,
-            "area_km2": np.random.uniform(1, 50, n_samples),
+            "mean_elevation":     np.random.uniform(2, 700, n_samples),
+            "min_elevation":      np.random.uniform(1, 200, n_samples),
+            "low_lying_pct":      np.random.uniform(0, 90,  n_samples),
+            "drainage_density":   np.random.uniform(0.05, 0.95, n_samples),
+            "flood_events_5yr":   flood_events,
+            "area_km2":           np.random.uniform(1, 50, n_samples),
         })
 
-        # Domain-expert risk labeling (deterministic; no extra noise)
+        # Labels derived from the rule-based formula — this is the tautology
+        # that makes the synthetic path worthless for real ML.
         risk_score = (
-            (X["rainfall_intensity"] - 50) / 300 * 0.40 +
-            (1 - (X["mean_elevation"] - 2) / 698) * 0.30 +
-            (1 - X["drainage_density"]) * 0.20 +
-            X["flood_events_5yr"] / 7 * 0.10
+            (X["rainfall_intensity"] - 50) / 300 * 0.40
+            + (1 - (X["mean_elevation"] - 2) / 698) * 0.30
+            + (1 - X["drainage_density"]) * 0.20
+            + X["flood_events_5yr"] / 7 * 0.10
         )
         y = (risk_score > 0.5).astype(int)
         return X, y
 
+    # ------------------------------------------------------------------
+    # Training orchestrator — priority chain with explicit source tagging
+    # ------------------------------------------------------------------
+
     def train(self, X: pd.DataFrame = None, y: np.ndarray = None) -> dict:
-        """Train XGBoost classifier and return evaluation metrics."""
-        if X is None or y is None:
-            logger.info("Generating disaster-informed training data...")
-            X, y = self.generate_training_data()
+        """
+        Train XGBoost classifier and return evaluation metrics.
+
+        Data source priority
+        --------------------
+        1. Caller-supplied X, y                  → source = "caller_supplied"
+        2. PostgreSQL flood_scores (≥ MIN_REAL_SAMPLES rows)
+                                                 → source = "database"
+        3. generate_training_data() [last resort] → source = "synthetic"
+                                                    (warning emitted)
+
+        The resolved source is recorded in metrics["training_data_source"]
+        and stored in self._training_data_source for use by predict().
+        """
+        if X is not None and y is not None:
+            data_source = "caller_supplied"
+            logger.info("[Predictor] Training on caller-supplied data.")
+        else:
+            # ── Try real DB data first ─────────────────────────────────
+            try:
+                logger.info(
+                    "[Predictor] Attempting to load real training data from PostgreSQL…"
+                )
+                X, y = self.load_real_training_data()
+                data_source = "database"
+                logger.info(
+                    f"[Predictor] Using {len(X)} real rows from PostgreSQL for training."
+                )
+            except Exception as db_exc:
+                # ── Fall through to synthetic — LAST RESORT ────────────
+                logger.warning(
+                    f"[Predictor] Real data unavailable ({db_exc}). "
+                    "Falling back to SYNTHETIC training data. "
+                    "Model will NOT add ML value over the rule-based scorer."
+                )
+                X, y = self.generate_training_data()
+                data_source = "synthetic"
+
+        self._training_data_source = data_source
 
         X_train, X_test, y_train, y_test = train_test_split(
             X[self.FEATURES], y, test_size=0.2, random_state=42, stratify=y
@@ -401,77 +694,126 @@ class FloodRiskPredictor:
             eval_metric="logloss",
             use_label_encoder=False,
             random_state=42,
-            n_jobs=-1
+            n_jobs=-1,
         )
 
-        eval_set = [(X_test, y_test)]
         self.model.fit(
             X_train, y_train,
-            eval_set=eval_set,
-            verbose=50
+            eval_set=[(X_test, y_test)],
+            verbose=50,
         )
 
-        # Metrics
-        y_pred = self.model.predict(X_test)
+        y_pred  = self.model.predict(X_test)
         y_proba = self.model.predict_proba(X_test)[:, 1]
-
         cv_scores = cross_val_score(self.model, X[self.FEATURES], y, cv=5, scoring="f1")
 
         metrics = {
-            "accuracy": round(accuracy_score(y_test, y_pred), 4),
-            "f1_score": round(f1_score(y_test, y_pred), 4),
-            "roc_auc": round(roc_auc_score(y_test, y_proba), 4),
-            "cv_f1_mean": round(cv_scores.mean(), 4),
-            "cv_f1_std": round(cv_scores.std(), 4),
-            "n_train": len(X_train),
-            "n_test": len(X_test),
+            "accuracy":             round(accuracy_score(y_test, y_pred), 4),
+            "f1_score":             round(f1_score(y_test, y_pred), 4),
+            "roc_auc":              round(roc_auc_score(y_test, y_proba), 4),
+            "cv_f1_mean":           round(cv_scores.mean(), 4),
+            "cv_f1_std":            round(cv_scores.std(), 4),
+            "n_train":              len(X_train),
+            "n_test":               len(X_test),
+            # Explicit provenance tag — always present so callers can gate on it.
+            "training_data_source": data_source,
         }
 
-        self.is_trained = True
-        logger.info(f"Model trained. Metrics: {metrics}")
+        if data_source == "synthetic":
+            metrics["synthetic_warning"] = (
+                "Model trained on synthetic data. Metrics reflect rule-based "
+                "formula fit, not real predictive skill. Retrain with real data."
+            )
 
-        # Save model
-        joblib.dump({"model": self.model, "scaler": self.scaler, "features": self.FEATURES}, self.MODEL_PATH)
-        logger.info(f"Model saved to {self.MODEL_PATH}")
+        self.is_trained = True
+        logger.info(f"[Predictor] Model trained. source={data_source} metrics={metrics}")
+
+        joblib.dump(
+            {
+                "model":                self.model,
+                "scaler":               self.scaler,
+                "features":             self.FEATURES,
+                "training_data_source": data_source,
+            },
+            self.MODEL_PATH,
+        )
+        logger.info(f"[Predictor] Model saved to {self.MODEL_PATH}")
 
         return metrics
 
+    # ------------------------------------------------------------------
+    # Prediction
+    # ------------------------------------------------------------------
+
     def predict(self, ward_features: dict) -> dict:
-        """Predict flood risk for a single ward."""
+        """
+        Predict flood risk for a single ward.
+
+        If the model was trained on synthetic data, every prediction carries
+        `trained_on_synthetic=True` as a first-class flag so API consumers
+        and the dashboard can display an appropriate caveat.
+        """
         if not self.is_trained:
             self.load_model()
 
         X = pd.DataFrame([{f: ward_features.get(f, 0) for f in self.FEATURES}])
 
         if self.model is None:
-            # Fallback rule-based
             risk = self._rule_based_risk(ward_features)
-            return {"risk_class": "HIGH_RISK" if risk > 0.5 else "LOW_RISK", "probability": risk, "method": "rule_based"}
+            return {
+                "risk_class":          "HIGH_RISK" if risk > 0.5 else "LOW_RISK",
+                "flood_probability":   round(risk, 4),
+                "method":              "rule_based",
+                "trained_on_synthetic": None,  # no model was used
+            }
 
         prob = float(self.model.predict_proba(X)[0][1])
-        cls = "HIGH_RISK" if prob > 0.5 else "LOW_RISK"
-
-        # Feature importance for this prediction (SHAP-lite)
+        cls  = "HIGH_RISK" if prob > 0.5 else "LOW_RISK"
         importance = dict(zip(self.FEATURES, self.model.feature_importances_))
 
-        return {
-            "risk_class": cls,
-            "flood_probability": round(prob, 4),
-            "confidence": round(abs(prob - 0.5) * 2, 4),
-            "feature_importance": {k: round(float(v), 4) for k, v in importance.items()},
-            "method": "xgboost_v2"
+        result = {
+            "risk_class":          cls,
+            "flood_probability":   round(prob, 4),
+            "confidence":          round(abs(prob - 0.5) * 2, 4),
+            "feature_importance":  {k: round(float(v), 4) for k, v in importance.items()},
+            "method":              "xgboost_v2",
+            "training_data_source": self._training_data_source,
+            # Explicit boolean flag — easy for callers to check without string parsing.
+            "trained_on_synthetic": self._training_data_source == "synthetic",
         }
 
+        if result["trained_on_synthetic"]:
+            result["synthetic_warning"] = (
+                "This prediction was made by a model trained on synthetic data. "
+                "It reflects the rule-based scoring formula, not learned patterns. "
+                "Retrain once real flood_scores rows are available."
+            )
+
+        return result
+
+    # ------------------------------------------------------------------
+    # Model persistence
+    # ------------------------------------------------------------------
+
     def load_model(self):
-        """Load saved model from disk."""
+        """Load saved model from disk, restoring training_data_source."""
         if self.MODEL_PATH.exists():
             saved = joblib.load(self.MODEL_PATH)
-            self.model = saved["model"]
+            self.model  = saved["model"]
             self.scaler = saved.get("scaler", StandardScaler())
+            self._training_data_source = saved.get("training_data_source", "unknown")
             self.is_trained = True
-            logger.info("Model loaded from disk.")
+            logger.info(
+                f"[Predictor] Model loaded from disk. "
+                f"training_data_source={self._training_data_source}"
+            )
+            if self._training_data_source == "synthetic":
+                logger.warning(
+                    "[Predictor] Loaded model was trained on SYNTHETIC data. "
+                    "Retrain with real data for meaningful ML predictions."
+                )
         else:
-            logger.warning("No saved model found. Training new model...")
+            logger.warning("[Predictor] No saved model found. Training new model…")
             self.train()
 
     def get_feature_importance(self) -> dict:
@@ -481,11 +823,11 @@ class FloodRiskPredictor:
         return dict(zip(self.FEATURES, self.model.feature_importances_))
 
     def _rule_based_risk(self, features: dict) -> float:
-        """Fallback rule-based risk estimation."""
-        rain_risk = (features.get("rainfall_intensity", 150) - 50) / 300
-        elev_risk = 1 - (features.get("mean_elevation", 50) - 2) / 698
+        """Fallback rule-based risk estimation (used when model is None)."""
+        rain_risk  = (features.get("rainfall_intensity", 150) - 50) / 300
+        elev_risk  = 1 - (features.get("mean_elevation", 50) - 2) / 698
         drain_risk = 1 - features.get("drainage_density", 0.5)
-        hist_risk = features.get("flood_events_5yr", 2) / 7
+        hist_risk  = features.get("flood_events_5yr", 2) / 7
         return rain_risk * 0.4 + elev_risk * 0.3 + drain_risk * 0.2 + hist_risk * 0.1
 
 
@@ -610,6 +952,9 @@ if __name__ == "__main__":
     # Train XGBoost
     print("\n[1] Training XGBoost Flood Risk Model...")
     metrics = engine.predictor.train()
+    print(f"  Data source : {metrics['training_data_source'].upper()}")
+    if metrics.get("synthetic_warning"):
+        print(f"\n  *** WARNING: {metrics['synthetic_warning']} ***\n")
     print(f"  Accuracy : {metrics['accuracy']:.1%}")
     print(f"  F1 Score : {metrics['f1_score']:.1%}")
     print(f"  ROC-AUC  : {metrics['roc_auc']:.1%}")

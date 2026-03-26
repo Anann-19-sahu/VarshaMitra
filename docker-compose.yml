@@ -114,13 +114,13 @@ services:
     restart: unless-stopped
     networks:
       - varsha_net
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+   # deploy:
+    #  resources:
+      #   reservations:
+       #   devices:
+        #    - driver: nvidia
+         #     count: all
+          #    capabilities: [gpu]
     # Pull model on startup
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 10 && ollama pull llama3.2 && wait"]
 

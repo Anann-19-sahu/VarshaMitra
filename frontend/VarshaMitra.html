@@ -10,768 +10,8 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<style>
-  /* DEFAULT (DARK THEME) */
-:root {
-  --bg-deep: #050d1a;
-  --bg-dark: #0a1628;
-  --bg-card: #0f1f35;
-  --bg-card2: #122040;
+<link rel="stylesheet" href="/static/VarshaMitra.css">
 
-  --border: #1a3050;
-  --border-glow: #1e4060;
-
-  --cyan: #00d4ff;
-  --cyan-dim: #0099cc;
-  --cyan-glow: rgba(0,212,255,0.15);
-
-  --amber: #ff9f0a;
-  --amber-glow: rgba(255,159,10,0.15);
-
-  --red: #ff453a;
-  --red-glow: rgba(255,69,58,0.12);
-  --green: #32d74b;
-  --green-glow: rgba(50,215,75,0.12);
-
-  --text-primary: #e8f4fd;
-  --text-secondary: #7090b0;
-  --text-muted: #405070;
-
-  --font-display: 'Chakra Petch', sans-serif;
-  --font-mono: 'JetBrains Mono', monospace;
-  --font-hero: 'Bebas Neue', sans-serif;
-}
-
-/* ✅ LIGHT MODE (MUST BE OUTSIDE) */
-[data-theme="light"] {
-  --bg-deep: #f4f7fb;
-  --bg-dark: #ffffff;
-  --bg-card: #ffffff;
-  --bg-card2: #f9fbfd;
-
-  --border: #dce3ea;
-  --border-glow: rgba(0,0,0,0.08);
-
-  --cyan: #0077cc;
-  --cyan-dim: #005fa3;
-  --cyan-glow: rgba(0,119,204,0.1);
-
-  --amber: #f9ab00;
-  --amber-glow: rgba(249,171,0,0.1);
-
-  --red: #d93025;
-  --red-glow: rgba(217,48,37,0.08);
-  --green: #188038;
-  --green-glow: rgba(24,128,56,0.1);
-
-  --text-primary: #0a1a2f;
-  --text-secondary: #5c6b7a;
-  --text-muted: #7a8a9a;
-}
-  * { margin:0; padding:0; box-sizing:border-box; }
-  html, body { height:100%; overflow:hidden; }
-  body {
-    font-family: 'Chakra Petch', sans-serif;
-    background: var(--bg-deep);
-    color: var(--text-primary);
-    font-size: 13px;
-  }
-
-
-  /* LOGO IMAGES */
-  .login-logo-img {
-    height: 220px; width: auto; display: block; margin-bottom: 20px;
-    transition: filter 0.3s ease;
-  }
-  [data-theme="dark"] .login-logo-img {
-    filter: drop-shadow(0 2px 16px rgba(0,180,255,0.35)) brightness(1.1);
-  }
-  [data-theme="light"] .login-logo-img {
-    filter: none;
-  }
-  .nav-logo-img {
-    height: 200px; width: auto; display: block;
-    transition: filter 0.3s ease;
-  }
-  [data-theme="dark"] .nav-logo-img {
-    filter: brightness(0) invert(1) drop-shadow(0 0 6px rgba(0,212,255,0.5));
-  }
-  [data-theme="light"] .nav-logo-img {
-    filter: none;
-  }
-  /* SCROLLBAR */
-  ::-webkit-scrollbar { width:4px; height:4px; }
-  ::-webkit-scrollbar-track { background: var(--bg-dark); }
-  ::-webkit-scrollbar-thumb { background: var(--border-glow); border-radius:2px; }
-
-  /* LOGIN SCREEN */
-  #login-screen {
-    position:fixed; inset:0; z-index:1000;
-    background: radial-gradient(ellipse at 30% 50%, #0a2040 0%, #050d1a 70%);
-    display:flex; align-items:center; justify-content:center;
-  }
-  .login-bg-grid {
-    position:absolute; inset:0; overflow:hidden; opacity:0.15;
-    background-image: linear-gradient(var(--border) 1px, transparent 1px),
-                      linear-gradient(90deg, var(--border) 1px, transparent 1px);
-    background-size: 40px 40px;
-    animation: gridScroll 20s linear infinite;
-  }
-  @keyframes gridScroll { 0%{background-position:0 0} 100%{background-position:40px 40px} }
-  .login-rain {
-    position:absolute; inset:0; overflow:hidden; pointer-events:none;
-  }
-  .rain-drop {
-    position:absolute; width:1px; background: linear-gradient(transparent, var(--cyan));
-    animation: rainFall linear infinite;
-    opacity:0.3;
-  }
-  @keyframes rainFall { 0%{transform:translateY(-100px); opacity:0} 10%{opacity:0.3} 90%{opacity:0.1} 100%{transform:translateY(110vh); opacity:0} }
-  .login-panel {
-    position:relative; z-index:2;
-    width:480px;
-    background: linear-gradient(145deg, rgba(15,31,53,0.95), rgba(10,22,40,0.95));
-    border:1px solid var(--border-glow);
-    border-radius:4px;
-    padding:48px;
-    box-shadow: 0 0 60px rgba(0,100,200,0.2), inset 0 1px 0 rgba(255,255,255,0.05);
-  }
-  .login-logo {
-    display:flex; align-items:center; gap:12px; margin-bottom:8px;
-  }
-  .logo-icon {
-    width:48px; height:48px;
-    background: linear-gradient(135deg, var(--cyan), #0066aa);
-    border-radius:8px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:24px;
-  }
-  .logo-text-main {
-    font-family: var(--font-hero);
-    font-size:32px; letter-spacing:3px;
-    color: var(--cyan);
-    line-height:1;
-  }
-  .logo-text-sub {
-    font-size:10px; color: var(--text-secondary); letter-spacing:2px;
-    text-transform:uppercase; font-family: var(--font-mono);
-  }
-
-  .login-label {
-    font-size:10px; color:var(--text-secondary); letter-spacing:2px;
-    text-transform:uppercase; margin-bottom:6px; font-family:var(--font-mono);
-  }
-  .login-input {
-    width:100%; background: rgba(0,0,0,0.3); border:1px solid var(--border);
-    color:var(--text-primary); font-family:var(--font-mono); font-size:13px;
-    padding:10px 14px; border-radius:3px; margin-bottom:16px;
-    transition: border-color 0.2s, box-shadow 0.2s;
-    outline:none;
-  }
-  .login-input:focus { border-color:var(--cyan); box-shadow:0 0 0 3px var(--cyan-glow); }
-  .role-select {
-    width:100%; background: rgba(0,0,0,0.3); border:1px solid var(--border);
-    color:var(--text-primary); font-family:var(--font-display); font-size:13px;
-    padding:10px 14px; border-radius:3px; margin-bottom:24px; outline:none;
-    cursor:pointer;
-  }
-  .login-btn {
-    width:100%; padding:13px;
-    background: linear-gradient(135deg, var(--cyan), #0077aa);
-    border:none; border-radius:3px; color:#000;
-    font-family:var(--font-display); font-weight:700; font-size:14px;
-    letter-spacing:2px; text-transform:uppercase; cursor:pointer;
-    transition: transform 0.1s, box-shadow 0.2s;
-    position:relative; overflow:hidden;
-  }
-  .login-btn:hover { transform:translateY(-1px); box-shadow:0 4px 20px rgba(0,212,255,0.4); }
-  .login-btn:active { transform:translateY(0); }
-  .login-btn::after {
-    content:''; position:absolute; top:0; left:-100%; width:60%; height:100%;
-    background:linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent);
-    animation: loginShine 3s ease-in-out infinite;
-  }
-  @keyframes loginShine { 0%{left:-100%} 50%{left:200%} 100%{left:200%} }
-  .login-citizen {
-    text-align:center; margin-top:16px;
-    font-size:11px; color:var(--text-secondary);
-  }
-  .login-citizen a { color:var(--cyan); cursor:pointer; text-decoration:none; }
-  .login-citizen a:hover { text-decoration:underline; }
-  .login-badge {
-    display:inline-block; padding:3px 8px;
-    background:rgba(0,212,255,0.1); border:1px solid rgba(0,212,255,0.3);
-    border-radius:2px; font-size:9px; letter-spacing:1px;
-    color:var(--cyan); font-family:var(--font-mono);
-    margin-bottom:24px;
-  }
-
-  /* MAIN APP */
-  #app { display:none; height:100vh; flex-direction:column; }
-  #app.visible { display:flex; }
-
-  /* TOP NAV */
-  .topnav {
-    height:68px; min-height:68px;
-    background: linear-gradient(90deg, var(--bg-dark), rgba(10,22,40,0.98));
-    border-bottom:1px solid var(--border);
-    display:flex; align-items:center; padding:0 16px;
-    gap:16px; z-index:100;
-    box-shadow:0 2px 20px rgba(0,0,0,0.5);
-  }
-  .nav-logo { display:flex; align-items:center; gap:8px; }
-  .nav-logo-mark {
-    width:28px; height:28px;
-    background:linear-gradient(135deg, var(--cyan), #005599);
-    border-radius:4px; display:flex; align-items:center; justify-content:center;
-    font-size:14px;
-  }
-  .nav-title {
-    font-family: var(--font-hero);
-    font-size:20px; letter-spacing:2px; color:var(--cyan);
-  }
-  .nav-subtitle { font-size:9px; color:var(--text-muted); letter-spacing:1px; font-family:var(--font-mono); }
-  .nav-divider { width:1px; height:30px; background:var(--border); margin:0 4px; }
-  .nav-tabs { display:flex; gap:2px; flex:1; }
-  .nav-tab {
-    padding:6px 14px; border-radius:3px; cursor:pointer; font-size:11px;
-    letter-spacing:1px; text-transform:uppercase; font-weight:500;
-    color:var(--text-secondary); transition:all 0.2s;
-    display:flex; align-items:center; gap:6px;
-  }
-  .nav-tab:hover { color:var(--text-primary); background:rgba(255,255,255,0.04); }
-  .nav-tab.active { color:var(--cyan); background:rgba(0,212,255,0.08); }
-  .nav-right { display:flex; align-items:center; gap:12px; margin-left:auto; }
-  .nav-time {
-    font-family:var(--font-mono); font-size:11px; color:var(--text-secondary);
-    padding:4px 10px; background:rgba(0,0,0,0.3); border-radius:3px;
-  }
-  .nav-user {
-    display:flex; align-items:center; gap:8px;
-    padding:4px 10px; background:rgba(0,0,0,0.3); border-radius:3px;
-    cursor:pointer;
-  }
-  .nav-user-dot {
-    width:8px; height:8px; border-radius:50%; background:var(--green);
-    box-shadow:0 0 6px var(--green);
-    animation: pulse 2s infinite;
-  }
-  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
-  .nav-alert-badge {
-    background:var(--red); color:#fff; font-size:9px; font-weight:700;
-    padding:2px 6px; border-radius:10px; animation: pulse 1.5s infinite;
-  }
-  .logout-btn {
-    padding:4px 10px; background:transparent; border:1px solid var(--border);
-    color:var(--text-secondary); font-family:var(--font-display); font-size:10px;
-    letter-spacing:1px; cursor:pointer; border-radius:3px; text-transform:uppercase;
-    transition:all 0.2s;
-  }
-  .logout-btn:hover { border-color:var(--red); color:var(--red); }
-
-  /* MAIN LAYOUT */
-  .main-layout { display:flex; flex:1; overflow:hidden; }
-
-  /* SIDEBAR */
-  .sidebar {
-    width:260px; min-width:260px;
-    background: var(--bg-dark);
-    border-right:1px solid var(--border);
-    display:flex; flex-direction:column;
-    overflow-y:auto; overflow-x:hidden;
-  }
-  .sidebar-section { padding:12px; border-bottom:1px solid var(--border); }
-  .sidebar-header {
-    font-size:9px; letter-spacing:2px; color:var(--text-muted);
-    text-transform:uppercase; font-family:var(--font-mono);
-    padding: 4px 0 8px 0;
-  }
-  .risk-summary-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; }
-  .risk-card {
-    padding:10px 8px; border-radius:3px; text-align:center;
-    border:1px solid; cursor:pointer; transition:all 0.2s;
-  }
-  .risk-card:hover { transform:translateY(-1px); }
-  .risk-card.red { background:var(--red-glow); border-color:rgba(255,69,58,0.4); }
-  .risk-card.amber { background:var(--amber-glow); border-color:rgba(255,159,10,0.4); }
-  .risk-card.green { background:var(--green-glow); border-color:rgba(50,215,75,0.4); }
-  .risk-card-num { font-family:var(--font-hero); font-size:28px; line-height:1; }
-  .risk-card.red .risk-card-num { color:var(--red); }
-  .risk-card.amber .risk-card-num { color:var(--amber); }
-  .risk-card.green .risk-card-num { color:var(--green); }
-  .risk-card-label { font-size:8px; letter-spacing:1px; color:var(--text-secondary); text-transform:uppercase; }
-
-  .alert-item {
-    padding:8px 10px; border-radius:3px; margin-bottom:6px;
-    border-left:3px solid; cursor:pointer; transition:all 0.2s;
-    position:relative; overflow:hidden;
-  }
-  .alert-item:hover { transform:translateX(2px); }
-  .alert-item.critical { background:var(--red-glow); border-color:var(--red); }
-  .alert-item.watch { background:var(--amber-glow); border-color:var(--amber); }
-  .alert-item.info { background:var(--cyan-glow); border-color:var(--cyan); }
-  .alert-title { font-size:11px; font-weight:600; margin-bottom:2px; }
-  .alert-item.critical .alert-title { color:var(--red); }
-  .alert-item.watch .alert-title { color:var(--amber); }
-  .alert-item.info .alert-title { color:var(--cyan); }
-  .alert-sub { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); }
-  .alert-pulse {
-    position:absolute; right:8px; top:50%; transform:translateY(-50%);
-    width:6px; height:6px; border-radius:50%; animation:pulse 1.5s infinite;
-  }
-  .critical .alert-pulse { background:var(--red); }
-  .watch .alert-pulse { background:var(--amber); }
-
-  /* WARD LIST */
-  .ward-item {
-    display:flex; align-items:center; gap:8px; padding:8px 10px;
-    border-radius:3px; cursor:pointer; transition:all 0.2s;
-    border:1px solid transparent; margin-bottom:3px;
-  }
-  .ward-item:hover { background:rgba(255,255,255,0.04); border-color:var(--border); }
-  .ward-item.active { background:rgba(0,212,255,0.06); border-color:rgba(0,212,255,0.3); }
-  .ward-rank {
-    font-family:var(--font-mono); font-size:10px; color:var(--text-muted);
-    min-width:18px;
-  }
-  .ward-info { flex:1; }
-  .ward-name { font-size:11px; font-weight:500; }
-  .ward-city { font-size:9px; color:var(--text-secondary); font-family:var(--font-mono); }
-  .ward-score-badge {
-    padding:3px 8px; border-radius:2px; font-family:var(--font-mono);
-    font-size:10px; font-weight:500;
-  }
-  .score-red { background:var(--red-glow); color:var(--red); border:1px solid rgba(255,69,58,0.4); }
-  .score-amber { background:var(--amber-glow); color:var(--amber); border:1px solid rgba(255,159,10,0.4); }
-  .score-green { background:var(--green-glow); color:var(--green); border:1px solid rgba(50,215,75,0.4); }
-
-  /* MAIN CONTENT */
-  .main-content { flex:1; display:flex; overflow:hidden; }
-
-  /* MAP PANEL */
-  .map-panel { flex:1; position:relative; }
-  #flood-map { width:100%; height:100%; }
-  .map-overlay {
-    position:absolute; top:12px; left:12px; z-index:500;
-    background:rgba(5,13,26,0.92); border:1px solid var(--border);
-    border-radius:4px; padding:10px 14px;
-    backdrop-filter: blur(8px);
-    box-shadow:0 4px 20px rgba(0,0,0,0.5);
-  }
-  .map-title { font-size:10px; letter-spacing:2px; color:var(--cyan); text-transform:uppercase; margin-bottom:6px; }
-  .legend-item { display:flex; align-items:center; gap:8px; font-size:10px; margin-bottom:3px; }
-  .legend-dot { width:10px; height:10px; border-radius:50%; }
-  .map-controls {
-    position:absolute; top:12px; right:12px; z-index:500;
-    display:flex; flex-direction:column; gap:6px;
-  }
-  .map-ctrl-btn {
-    width:36px; height:36px;
-    background:rgba(5,13,26,0.92); border:1px solid var(--border);
-    color:var(--text-primary); border-radius:3px; cursor:pointer;
-    font-size:14px; display:flex; align-items:center; justify-content:center;
-    transition:all 0.2s; backdrop-filter:blur(8px);
-  }
-  .map-ctrl-btn:hover { border-color:var(--cyan); color:var(--cyan); }
-  .map-ctrl-btn.active { border-color:var(--cyan); color:var(--cyan); background:var(--cyan-glow); }
-  .map-stat {
-    position:absolute; bottom:12px; left:12px; z-index:500;
-    display:flex; gap:8px;
-  }
-  .map-stat-chip {
-    padding:5px 10px;
-    background:rgba(5,13,26,0.92); border:1px solid var(--border);
-    border-radius:3px; font-family:var(--font-mono); font-size:10px;
-    backdrop-filter:blur(8px);
-  }
-  .map-stat-chip span { color:var(--cyan); }
-
-  /* RIGHT PANEL */
-  .right-panel {
-    width:320px; min-width:320px;
-    background:var(--bg-dark);
-    border-left:1px solid var(--border);
-    display:flex; flex-direction:column; overflow:hidden;
-  }
-  .rpanel-tabs {
-    display:flex; border-bottom:1px solid var(--border); min-height:40px;
-  }
-  .rpanel-tab {
-    flex:1; padding:0 8px; display:flex; align-items:center; justify-content:center;
-    font-size:10px; letter-spacing:1px; text-transform:uppercase;
-    cursor:pointer; color:var(--text-secondary); transition:all 0.2s;
-    border-bottom:2px solid transparent;
-  }
-  .rpanel-tab.active { color:var(--cyan); border-color:var(--cyan); background:rgba(0,212,255,0.04); }
-  .rpanel-content { flex:1; overflow-y:auto; padding:12px; }
-
-  /* GAUGE */
-  .gauge-container { text-align:center; padding:16px 0; }
-  .gauge-wrap { position:relative; display:inline-block; }
-  canvas#gaugeChart { width:180px!important; height:100px!important; }
-  .gauge-score {
-    position:absolute; bottom:0; left:50%; transform:translateX(-50%);
-    font-family:var(--font-hero); font-size:40px; line-height:1;
-  }
-  .gauge-label { font-size:10px; color:var(--text-secondary); margin-top:4px; letter-spacing:1px; }
-
-  /* METRIC BARS */
-  .metric-row { margin-bottom:10px; }
-  .metric-header { display:flex; justify-content:space-between; margin-bottom:4px; }
-  .metric-name { font-size:10px; color:var(--text-secondary); }
-  .metric-val { font-family:var(--font-mono); font-size:10px; }
-  .metric-bar { height:4px; background:rgba(255,255,255,0.06); border-radius:2px; overflow:hidden; }
-  .metric-fill { height:100%; border-radius:2px; transition:width 1s ease; }
-
-  /* SECTION HEADER */
-  .sec-hdr {
-    font-size:9px; letter-spacing:2px; color:var(--text-muted);
-    text-transform:uppercase; font-family:var(--font-mono);
-    padding:8px 0 6px; border-bottom:1px solid var(--border); margin-bottom:8px;
-  }
-
-  /* CHART CONTAINERS */
-  .chart-wrap { position:relative; height:150px; margin-bottom:12px; }
-  .chart-label { font-size:10px; color:var(--text-secondary); margin-bottom:6px; }
-
-  /* WARD DETAIL */
-  .ward-detail-header {
-    background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
-    border:1px solid var(--border); border-radius:4px;
-    padding:14px; margin-bottom:10px;
-  }
-  .wd-name { font-size:16px; font-weight:700; margin-bottom:4px; }
-  .wd-city { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); }
-  .wd-badges { display:flex; gap:6px; margin-top:8px; flex-wrap:wrap; }
-  .badge {
-    padding:3px 8px; border-radius:2px; font-size:9px; font-weight:600;
-    letter-spacing:1px; text-transform:uppercase;
-  }
-  .badge-critical { background:var(--red-glow); color:var(--red); border:1px solid rgba(255,69,58,0.4); }
-  .badge-watch { background:var(--amber-glow); color:var(--amber); border:1px solid rgba(255,159,10,0.4); }
-  .badge-safe { background:var(--green-glow); color:var(--green); border:1px solid rgba(50,215,75,0.4); }
-  .badge-info { background:var(--cyan-glow); color:var(--cyan); border:1px solid rgba(0,212,255,0.4); }
-
-  /* AI REPORT */
-  .ai-report {
-    background: linear-gradient(135deg, rgba(0,212,255,0.04), rgba(0,100,200,0.06));
-    border:1px solid rgba(0,212,255,0.2); border-radius:4px; padding:12px;
-    margin-bottom:10px;
-  }
-  .ai-report-hdr {
-    display:flex; align-items:center; gap:8px; margin-bottom:8px;
-  }
-  .ai-dot { width:8px; height:8px; border-radius:50%; background:var(--cyan); animation:pulse 1.5s infinite; }
-  .ai-title { font-size:10px; color:var(--cyan); letter-spacing:1px; text-transform:uppercase; font-family:var(--font-mono); }
-  .ai-text { font-size:11px; color:var(--text-secondary); line-height:1.6; font-family:var(--font-mono); }
-  .ai-generating { display:flex; align-items:center; gap:6px; font-size:10px; color:var(--cyan); font-family:var(--font-mono); }
-  .typing-dots span { animation:typingDot 1.2s infinite; display:inline-block; }
-  .typing-dots span:nth-child(2){animation-delay:0.2s}
-  .typing-dots span:nth-child(3){animation-delay:0.4s}
-  @keyframes typingDot {0%,80%,100%{transform:translateY(0)}40%{transform:translateY(-4px)}}
-
-  /* ACTIONS */
-  .action-btn {
-    width:100%; padding:9px 12px; margin-bottom:6px;
-    background:rgba(0,0,0,0.2); border:1px solid var(--border);
-    color:var(--text-primary); font-family:var(--font-display); font-size:11px;
-    letter-spacing:1px; text-transform:uppercase; cursor:pointer; border-radius:3px;
-    text-align:left; transition:all 0.2s; display:flex; align-items:center; gap:8px;
-  }
-  .action-btn:hover { border-color:var(--cyan); color:var(--cyan); background:var(--cyan-glow); }
-  .action-btn.warn:hover { border-color:var(--amber); color:var(--amber); background:var(--amber-glow); }
-  .action-btn.danger:hover { border-color:var(--red); color:var(--red); background:var(--red-glow); }
-
-  /* CITIZEN VIEW */
-  #citizen-view { display:none; flex-direction:column; flex:1; overflow:hidden; }
-  #citizen-view.visible { display:flex; }
-  .citizen-layout {
-    display:flex; flex:1; overflow:hidden;
-  }
-  .citizen-search-panel {
-    width:380px; min-width:380px; padding:20px;
-    overflow-y:auto; border-right:1px solid var(--border);
-    background:var(--bg-dark);
-  }
-  .search-box-wrap { position:relative; margin-bottom:16px; }
-  .search-icon { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:14px; }
-  .search-input {
-    width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--border);
-    color:var(--text-primary); font-family:var(--font-display); font-size:13px;
-    padding:10px 14px 10px 36px; border-radius:3px; outline:none;
-    transition:all 0.2s;
-  }
-  .search-input:focus { border-color:var(--cyan); box-shadow:0 0 0 3px var(--cyan-glow); }
-  .search-results { border:1px solid var(--border); border-radius:3px; overflow:hidden; }
-  .search-result-item {
-    padding:10px 14px; cursor:pointer; transition:background 0.15s;
-    border-bottom:1px solid var(--border); display:flex; justify-content:space-between;
-  }
-  .search-result-item:last-child { border-bottom:none; }
-  .search-result-item:hover { background:rgba(0,212,255,0.05); }
-  .sri-name { font-size:12px; }
-  .sri-city { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); }
-
-  /* CITIZEN RESULT CARD */
-  .citizen-result {
-    background: linear-gradient(135deg, var(--bg-card), var(--bg-card2));
-    border:1px solid var(--border); border-radius:4px; padding:16px;
-    margin-bottom:12px; display:none;
-  }
-  .citizen-result.show { display:block; }
-  .cr-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:12px; }
-  .cr-name { font-size:18px; font-weight:700; }
-  .cr-city { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); margin-top:2px; }
-  .cr-score-big {
-    font-family:var(--font-hero); font-size:52px; line-height:1; text-align:right;
-  }
-  .cr-score-label { font-size:9px; color:var(--text-secondary); text-align:right; letter-spacing:1px; }
-  .safety-tip {
-    background:rgba(0,0,0,0.2); border-left:3px solid;
-    padding:8px 10px; border-radius:0 3px 3px 0; margin-bottom:6px; font-size:11px;
-  }
-
-  /* DRAIN REPORT */
-  .drain-form {
-    background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px;
-  }
-  .drain-form-title { font-size:12px; font-weight:600; margin-bottom:10px; color:var(--cyan); }
-  .drain-input {
-    width:100%; background:rgba(0,0,0,0.3); border:1px solid var(--border);
-    color:var(--text-primary); font-family:var(--font-display); font-size:11px;
-    padding:8px 10px; border-radius:3px; margin-bottom:8px; outline:none; resize:vertical;
-  }
-  .drain-input:focus { border-color:var(--cyan); }
-  .drain-submit {
-    padding:8px 16px; background:var(--cyan); color:#000;
-    border:none; font-family:var(--font-display); font-weight:700; font-size:11px;
-    letter-spacing:1px; text-transform:uppercase; border-radius:3px; cursor:pointer;
-    transition:all 0.2s;
-  }
-  .drain-submit:hover { background:var(--cyan-dim); }
-
-  /* CITIZEN MAP */
-  .citizen-map-panel { flex:1; position:relative; }
-  #citizen-map { width:100%; height:100%; }
-
-  /* TOAST */
-  #toast-container {
-    position:fixed; bottom:20px; right:20px; z-index:9999;
-    display:flex; flex-direction:column; gap:8px;
-  }
-  .toast {
-    padding:10px 16px; border-radius:3px; font-size:11px; letter-spacing:0.5px;
-    animation: toastIn 0.3s ease, toastOut 0.3s ease 3.7s forwards;
-    min-width:280px; border-left:3px solid;
-    box-shadow:0 4px 20px rgba(0,0,0,0.4);
-  }
-  .toast.success { background:rgba(50,215,75,0.15); border-color:var(--green); color:var(--green); }
-  .toast.error { background:var(--red-glow); border-color:var(--red); color:var(--red); }
-  .toast.info { background:var(--cyan-glow); border-color:var(--cyan); color:var(--cyan); }
-  .toast.warn { background:var(--amber-glow); border-color:var(--amber); color:var(--amber); }
-  @keyframes toastIn { from{transform:translateX(40px);opacity:0} to{transform:translateX(0);opacity:1} }
-  @keyframes toastOut { to{transform:translateX(40px);opacity:0} }
-
-  /* MODAL */
-  .modal-overlay {
-    position:fixed; inset:0; z-index:800; background:rgba(0,0,0,0.7);
-    display:flex; align-items:center; justify-content:center;
-    backdrop-filter:blur(4px);
-  }
-  .modal-box {
-    background: var(--bg-card); border:1px solid var(--border-glow);
-    border-radius:4px; padding:24px; max-width:560px; width:90%;
-    box-shadow:0 20px 60px rgba(0,0,0,0.6);
-    animation: modalIn 0.2s ease;
-  }
-  @keyframes modalIn { from{transform:scale(0.95);opacity:0} to{transform:scale(1);opacity:1} }
-  .modal-title { font-size:16px; font-weight:700; margin-bottom:4px; color:var(--cyan); }
-  .modal-sub { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); margin-bottom:16px; }
-  .modal-close {
-    float:right; background:none; border:none; color:var(--text-muted);
-    font-size:18px; cursor:pointer; line-height:1; margin-top:-4px;
-  }
-  .modal-close:hover { color:var(--text-primary); }
-  .pdf-report { font-family:var(--font-mono); font-size:11px; line-height:1.8; }
-  .pdf-section { margin-bottom:12px; padding:10px; background:rgba(0,0,0,0.2); border-radius:3px; }
-  .pdf-section-title { font-size:10px; letter-spacing:1px; color:var(--cyan); text-transform:uppercase; margin-bottom:6px; }
-
-  /* LOADING */
-  .loading-bar {
-    height:2px; background:var(--border); border-radius:1px; overflow:hidden; margin-bottom:8px;
-  }
-  .loading-fill {
-    height:100%; background:linear-gradient(90deg, var(--cyan), #0066aa);
-    animation: loadBar 1.5s ease-in-out infinite;
-  }
-  @keyframes loadBar {0%{width:0;margin-left:0}50%{width:70%;margin-left:0}100%{width:0;margin-left:100%}}
-
-  /* ANALYTICS TAB */
-  .analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:16px; flex:1; overflow-y:auto; }
-  .analytics-card {
-    background:var(--bg-card); border:1px solid var(--border); border-radius:4px; padding:14px;
-  }
-  .analytics-card.full { grid-column:1/-1; }
-  .ac-title { font-size:10px; letter-spacing:1px; color:var(--text-secondary); text-transform:uppercase; margin-bottom:10px; font-family:var(--font-mono); }
-  .stat-big { font-family:var(--font-hero); font-size:36px; color:var(--cyan); }
-  .stat-sub { font-size:10px; color:var(--text-secondary); font-family:var(--font-mono); }
-  .stat-change { font-size:11px; color:var(--green); font-family:var(--font-mono); }
-  .stat-change.neg { color:var(--red); }
-
-  /* RESPONSIVE hide */
-  @media(max-width:768px){
-    .right-panel{display:none}
-    .sidebar{display:none}
-  }
-
-  /* THEME TOGGLE BUTTON */
-  .theme-toggle {
-    width: 36px; height: 36px;
-    display: flex; align-items: center; justify-content: center;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 50%;
-    cursor: pointer;
-    font-size: 16px;
-    transition: all 0.25s ease;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-    padding: 0;
-    position: relative;
-    overflow: hidden;
-  }
-  .theme-toggle:hover {
-    border-color: var(--cyan);
-    box-shadow: 0 0 12px var(--cyan-glow), 0 2px 8px rgba(0,0,0,0.3);
-    transform: rotate(20deg) scale(1.1);
-  }
-  .theme-toggle:active { transform: scale(0.92); }
-
-  /* LIGHT MODE — Leaflet map tiles */
-  [data-theme="light"] .leaflet-container {
-    background: #e8eef5 !important;
-  }
-  [data-theme="light"] .leaflet-tile {
-    filter: none !important;
-  }
-
-  /* DARK MODE — Leaflet dark tile tint */
-  [data-theme="dark"] .leaflet-container {
-    background: #060e1e !important;
-  }
-  [data-theme="dark"] .leaflet-tile {
-    filter: brightness(0.75) saturate(0.45) hue-rotate(195deg) !important;
-  }
-
-  /* LIGHT MODE — Leaflet popup */
-  [data-theme="light"] .leaflet-popup-content-wrapper {
-    background: #ffffff;
-    border: 1px solid #dce3ea;
-    color: #0a1a2f;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-  }
-  [data-theme="light"] .leaflet-popup-tip {
-    background: #ffffff;
-  }
-
-  /* LIGHT MODE — Login screen */
-  [data-theme="light"] #login-screen {
-    background: radial-gradient(ellipse at 30% 50%, #c8dff5 0%, #e8f2fb 70%);
-  }
-  [data-theme="light"] .login-bg-grid {
-    background-image: linear-gradient(#b0cce4 1px, transparent 1px),
-                      linear-gradient(90deg, #b0cce4 1px, transparent 1px);
-    opacity: 0.25;
-  }
-  [data-theme="light"] .login-panel {
-    background: linear-gradient(145deg, rgba(255,255,255,0.97), rgba(240,248,255,0.97));
-    border-color: #ccdaec;
-    box-shadow: 0 8px 40px rgba(0,80,180,0.12), inset 0 1px 0 rgba(255,255,255,0.9);
-  }
-  [data-theme="light"] .login-input,
-  [data-theme="light"] .role-select {
-    background: rgba(240,246,255,0.8);
-    border-color: #ccdaec;
-  }
-  [data-theme="light"] .rain-drop {
-    background: linear-gradient(transparent, var(--cyan));
-    opacity: 0.15;
-  }
-
-  /* LIGHT MODE — Nav */
-  [data-theme="light"] .topnav {
-    background: linear-gradient(90deg, #ffffff, #f5f9ff);
-    border-bottom-color: #dce3ea;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  }
-
-  /* LIGHT MODE — Sidebar & panels */
-  [data-theme="light"] .sidebar,
-  [data-theme="light"] .right-panel {
-    background: #f8fbff;
-    border-color: #dce3ea;
-  }
-
-  /* LIGHT MODE — Map overlay glass cards */
-  [data-theme="light"] .map-overlay,
-  [data-theme="light"] .map-ctrl-btn,
-  [data-theme="light"] .map-stat-chip {
-    background: rgba(255,255,255,0.94);
-    border-color: #ccdaec;
-    color: #0a1a2f;
-  }
-  [data-theme="light"] .map-ctrl-btn:hover {
-    border-color: var(--cyan);
-    color: var(--cyan);
-  }
-
-  /* LIGHT MODE — Cards and analytics */
-  [data-theme="light"] .analytics-card,
-  [data-theme="light"] .ward-detail-header,
-  [data-theme="light"] .ai-report,
-  [data-theme="light"] .drain-form {
-    background: #ffffff;
-    border-color: #dce3ea;
-  }
-  [data-theme="light"] .modal-box {
-    background: #ffffff;
-    border-color: #ccdaec;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.15);
-  }
-
-  /* LIGHT MODE — Table rows */
-  [data-theme="light"] tr:hover td { background: rgba(0,119,204,0.04) !important; }
-
-  /* THEME TRANSITION — smooth switch */
-  body, .topnav, .sidebar, .right-panel, .map-overlay,
-  .analytics-card, .modal-box, .ward-detail-header,
-  .login-panel, #login-screen {
-    transition: background 0.3s ease, border-color 0.3s ease, color 0.2s ease;
-  }
-
-  /* Leaflet popup base */
-  .leaflet-popup-content-wrapper {
-    background: var(--bg-card); border: 1px solid var(--border-glow);
-    color: var(--text-primary); font-family: var(--font-display); font-size: 12px;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.4); border-radius: 3px;
-  }
-  .leaflet-popup-tip { background: var(--bg-card); }
-  .popup-name { font-size:14px; font-weight:700; margin-bottom:4px; }
-  .popup-score { font-family:'Bebas Neue', sans-serif; font-size:32px; }
-  .popup-detail { font-size:10px; color:var(--text-secondary); font-family:'JetBrains Mono', monospace; margin-top:4px; }
-
-  /* Leaflet attribution */
-  .leaflet-control-attribution {
-    font-size: 9px !important;
-    background: rgba(255,255,255,0.1) !important;
-    color: var(--text-muted) !important;
-  }
-  [data-theme="light"] .leaflet-control-attribution {
-    background: rgba(255,255,255,0.85) !important;
-    color: #5c6b7a !important;
-  }
-  .leaflet-control-attribution a { color: var(--cyan) !important; }
-
-</style>
 </head>
 <body>
 
@@ -833,7 +73,7 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-section">
-        <div class="sidebar-header">Risk Summary · 2025 Monsoon Season</div>
+        <div class="sidebar-header">Risk Summary · <span id="current-season-year">2026</span> Monsoon Season</div>
         <div class="risk-summary-grid">
           <div class="risk-card red" onclick="filterMap('red')">
             <div class="risk-card-num" id="cnt-red">8</div>
@@ -922,8 +162,8 @@
       <div class="analytics-grid">
         <div class="analytics-card">
           <div class="ac-title">Total Wards Monitored</div>
-          <div class="stat-big">40</div>
-          <div class="stat-sub">5 major cities · 2024 season</div>
+          <div class="stat-big" id="analytics-total-wards">40</div>
+          <div class="stat-sub">5 major cities · <span id="analytics-season-year">2026</span> season</div>
         </div>
         <div class="analytics-card">
           <div class="ac-title">Avg Readiness Score</div>
@@ -932,16 +172,16 @@
         </div>
         <div class="analytics-card">
           <div class="ac-title">Peak Rainfall Recorded</div>
-          <div class="stat-big" style="color:var(--amber)">247mm</div>
-          <div class="stat-sub stat-change neg">↑ 18% vs last year</div>
+          <div class="stat-big" style="color:var(--amber)" id="analytics-peak-rain">--</div>
+          <div class="stat-sub" id="analytics-peak-rain-sub">Live from Open-Meteo</div>
         </div>
         <div class="analytics-card">
           <div class="ac-title">Drainage Alerts</div>
-          <div class="stat-big" style="color:var(--red)">12</div>
-          <div class="stat-sub stat-change neg">Capacity exceeded</div>
+          <div class="stat-big" style="color:var(--red)" id="analytics-drain-alerts">--</div>
+          <div class="stat-sub stat-change neg">Wards with &lt;30% capacity</div>
         </div>
         <div class="analytics-card full">
-          <div class="ac-title">Monthly Rainfall Trend (mm) – 2024</div>
+          <div class="ac-title">Monthly Rainfall Trend (mm) – <span id="analytics-rainfall-year">2026</span></div>
           <div style="height:200px"><canvas id="analyticsRainfallChart"></canvas></div>
         </div>
         <div class="analytics-card full">
@@ -1066,113 +306,69 @@
 
 <script>
 // ============================================================
-// DATA - 40 Indian City Wards with realistic flood parameters
+// CONFIG
 // ============================================================
-const WARDS = [
-  // Mumbai (lat: 19.076, lng: 72.877)
-  { id:1, name:"Dharavi", city:"Mumbai", lat:19.0422, lng:72.8521, rainfall:210, elevation:8, drainage:25, floodHistory:4, pop:850000 },
-  { id:2, name:"Kurla", city:"Mumbai", lat:19.0726, lng:72.8794, rainfall:195, elevation:12, drainage:35, floodHistory:3, pop:420000 },
-  { id:3, name:"Sion", city:"Mumbai", lat:19.0446, lng:72.8612, rainfall:185, elevation:6, drainage:20, floodHistory:5, pop:280000 },
-  { id:4, name:"Chembur", city:"Mumbai", lat:19.0623, lng:72.9007, rainfall:175, elevation:15, drainage:45, floodHistory:2, pop:190000 },
-  { id:5, name:"Malad", city:"Mumbai", lat:19.1879, lng:72.8484, rainfall:220, elevation:18, drainage:40, floodHistory:3, pop:340000 },
-  { id:6, name:"Vikhroli", city:"Mumbai", lat:19.1059, lng:72.9276, rainfall:168, elevation:22, drainage:55, floodHistory:1, pop:160000 },
-  { id:7, name:"Bandra", city:"Mumbai", lat:19.0544, lng:72.8402, rainfall:190, elevation:10, drainage:38, floodHistory:2, pop:280000 },
-  { id:8, name:"Ghatkopar", city:"Mumbai", lat:19.0860, lng:72.9081, rainfall:178, elevation:20, drainage:48, floodHistory:2, pop:310000 },
-  // Pune (lat: 18.520, lng: 73.856)
-  { id:9, name:"Kasba Peth", city:"Pune", lat:18.5188, lng:73.8567, rainfall:145, elevation:560, drainage:42, floodHistory:1, pop:95000 },
-  { id:10, name:"Yerawada", city:"Pune", lat:18.5590, lng:73.9040, rainfall:132, elevation:578, drainage:58, floodHistory:0, pop:120000 },
-  { id:11, name:"Kothrud", city:"Pune", lat:18.5074, lng:73.8077, rainfall:138, elevation:570, drainage:62, floodHistory:0, pop:175000 },
-  { id:12, name:"Bibwewadi", city:"Pune", lat:18.4689, lng:73.8614, rainfall:152, elevation:540, drainage:35, floodHistory:2, pop:140000 },
-  { id:13, name:"Hadapsar", city:"Pune", lat:18.5089, lng:73.9260, rainfall:148, elevation:548, drainage:38, floodHistory:2, pop:280000 },
-  { id:14, name:"Pimpri", city:"Pune", lat:18.6298, lng:73.7997, rainfall:160, elevation:545, drainage:45, floodHistory:1, pop:390000 },
-  { id:15, name:"Wanowrie", city:"Pune", lat:18.4900, lng:73.8900, rainfall:140, elevation:552, drainage:50, floodHistory:1, pop:98000 },
-  { id:16, name:"Shivajinagar", city:"Pune", lat:18.5308, lng:73.8475, rainfall:136, elevation:568, drainage:60, floodHistory:0, pop:85000 },
-  // Delhi (lat: 28.704, lng: 77.102)
-  { id:17, name:"Yamuna Vihar", city:"Delhi", lat:28.7041, lng:77.2993, rainfall:110, elevation:205, drainage:28, floodHistory:4, pop:320000 },
-  { id:18, name:"Mustafabad", city:"Delhi", lat:28.7381, lng:77.2712, rainfall:98, elevation:211, drainage:32, floodHistory:3, pop:280000 },
-  { id:19, name:"Burari", city:"Delhi", lat:28.7534, lng:77.1859, rainfall:95, elevation:218, drainage:40, floodHistory:2, pop:190000 },
-  { id:20, name:"Shahdara", city:"Delhi", lat:28.6716, lng:77.2952, rainfall:108, elevation:208, drainage:30, floodHistory:4, pop:260000 },
-  { id:21, name:"Rohini", city:"Delhi", lat:28.7495, lng:77.0639, rainfall:88, elevation:225, drainage:52, floodHistory:1, pop:450000 },
-  { id:22, name:"Dwarka", city:"Delhi", lat:28.5921, lng:77.0460, rainfall:85, elevation:220, drainage:58, floodHistory:0, pop:380000 },
-  { id:23, name:"Trilokpuri", city:"Delhi", lat:28.6244, lng:77.3048, rainfall:102, elevation:215, drainage:25, floodHistory:3, pop:220000 },
-  { id:24, name:"Patparganj", city:"Delhi", lat:28.6271, lng:77.2961, rainfall:100, elevation:213, drainage:35, floodHistory:2, pop:185000 },
-  // Chennai (lat: 13.083, lng: 80.270)
-  { id:25, name:"Manali", city:"Chennai", lat:13.1651, lng:80.2650, rainfall:195, elevation:5, drainage:22, floodHistory:5, pop:175000 },
-  { id:26, name:"Tondiarpet", city:"Chennai", lat:13.1227, lng:80.2889, rainfall:188, elevation:4, drainage:18, floodHistory:5, pop:200000 },
-  { id:27, name:"Perambur", city:"Chennai", lat:13.1190, lng:80.2470, rainfall:175, elevation:8, drainage:30, floodHistory:3, pop:160000 },
-  { id:28, name:"Velachery", city:"Chennai", lat:12.9785, lng:80.2209, rainfall:210, elevation:3, drainage:15, floodHistory:6, pop:210000 },
-  { id:29, name:"Tambaram", city:"Chennai", lat:12.9249, lng:80.1000, rainfall:182, elevation:45, drainage:42, floodHistory:2, pop:290000 },
-  { id:30, name:"Adyar", city:"Chennai", lat:13.0011, lng:80.2565, rainfall:192, elevation:5, drainage:20, floodHistory:4, pop:145000 },
-  { id:31, name:"Kodambakkam", city:"Chennai", lat:13.0530, lng:80.2209, rainfall:170, elevation:12, drainage:35, floodHistory:2, pop:130000 },
-  { id:32, name:"Anna Nagar", city:"Chennai", lat:13.0857, lng:80.2101, rainfall:165, elevation:20, drainage:48, floodHistory:1, pop:185000 },
-  // Kolkata (lat: 22.573, lng: 88.364)
-  { id:33, name:"Tiljala", city:"Kolkata", lat:22.5382, lng:88.3980, rainfall:215, elevation:6, drainage:20, floodHistory:5, pop:195000 },
-  { id:34, name:"Topsia", city:"Kolkata", lat:22.5507, lng:88.3888, rainfall:202, elevation:5, drainage:18, floodHistory:5, pop:155000 },
-  { id:35, name:"Behala", city:"Kolkata", lat:22.4942, lng:88.3019, rainfall:198, elevation:4, drainage:22, floodHistory:4, pop:320000 },
-  { id:36, name:"Jadavpur", city:"Kolkata", lat:22.4982, lng:88.3728, rainfall:190, elevation:7, drainage:28, floodHistory:3, pop:180000 },
-  { id:37, name:"Ultadanga", city:"Kolkata", lat:22.5847, lng:88.3990, rainfall:185, elevation:8, drainage:32, floodHistory:3, pop:140000 },
-  { id:38, name:"Lake Town", city:"Kolkata", lat:22.5958, lng:88.4005, rainfall:175, elevation:10, drainage:38, floodHistory:2, pop:125000 },
-  { id:39, name:"Salt Lake", city:"Kolkata", lat:22.5803, lng:88.4217, rainfall:168, elevation:9, drainage:45, floodHistory:1, pop:220000 },
-  { id:40, name:"Dum Dum", city:"Kolkata", lat:22.6511, lng:88.3974, rainfall:172, elevation:12, drainage:40, floodHistory:2, pop:145000 }
-];
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8000'
+  : '';  // same-origin in production
 
-const ALERTS = [
-  { type:'critical', title:'RED ALERT – Dharavi, Mumbai', sub:'Score: 18 · Flood in 24hr', time:'2m ago' },
-  { type:'critical', title:'RED ALERT – Velachery, Chennai', sub:'Score: 15 · Drainage failed', time:'5m ago' },
-  { type:'watch', title:'WATCH – Yamuna Vihar, Delhi', sub:'Score: 38 · Rising water', time:'12m ago' },
-  { type:'watch', title:'WATCH – Tiljala, Kolkata', sub:'Score: 22 · Heavy rainfall', time:'18m ago' },
-  { type:'info', title:'MODEL UPDATE – XGBoost v2.1', sub:'Prediction accuracy: 87%', time:'1hr ago' }
-];
+// ============================================================
+// STATE
+// ============================================================
+let WARDS = [];          // populated from API
+let ALERTS = [];         // populated from API
+let sortedByRisk = [];
+let avgScore = 0;
+let selectedWard = null;
+let currentRole = null;
+let currentTab = 'map';
+let currentRPanel = 'detail';
+let currentFilter = null;
+let floodMap = null, citizenMap = null;
+let wardMarkers = {};
+let rainfallChart, floodProbChart, radarChart;
+let analyticsChartsInit = false;
 
 const SAFETY_TIPS = {
   red: [
-    { color: 'var(--red)', tip: '🚨 HIGH RISK: Evacuate low-lying areas immediately.' },
-    { color: 'var(--red)', tip: '🌊 Do not cross flooded streets or underpasses.' },
+    { color: 'var(--red)',   tip: '🚨 HIGH RISK: Evacuate low-lying areas immediately.' },
+    { color: 'var(--red)',   tip: '🌊 Do not cross flooded streets or underpasses.' },
     { color: 'var(--amber)', tip: '📦 Keep emergency kit ready: documents, medicines, water.' },
     { color: 'var(--amber)', tip: '📱 Register on NDRF emergency SMS system.' }
   ],
   amber: [
     { color: 'var(--amber)', tip: '⚠️ WATCH: Monitor local municipal alerts closely.' },
     { color: 'var(--amber)', tip: '🏠 Move valuables to higher floors.' },
-    { color: 'var(--cyan)', tip: '🔦 Keep flashlights and spare batteries ready.' },
-    { color: 'var(--cyan)', tip: '📞 Save NDRF helpline: 011-24363260' }
+    { color: 'var(--cyan)',  tip: '🔦 Keep flashlights and spare batteries ready.' },
+    { color: 'var(--cyan)',  tip: '📞 Save NDRF helpline: 011-24363260' }
   ],
   green: [
     { color: 'var(--green)', tip: '✅ LOW RISK: Area is relatively safe this season.' },
-    { color: 'var(--cyan)', tip: '🧹 Clear drain covers near your property.' },
-    { color: 'var(--cyan)', tip: '📡 Stay informed via IMD weather updates.' }
+    { color: 'var(--cyan)',  tip: '🧹 Clear drain covers near your property.' },
+    { color: 'var(--cyan)',  tip: '📡 Stay informed via IMD weather updates.' }
   ]
 };
 
-const AI_REPORTS = {
-  high: (w) => `Ward ${w.name} (${w.city}) presents CRITICAL flood risk based on integrated analysis of IMD rainfall data, ISRO CartoDEM elevation models, and NDMA historical records.\n\nKey findings: Rainfall intensity of ${w.rainfall}mm exceeds seasonal threshold by 42%. Terrain elevation of ${w.elevation}m places this ward in a high-vulnerability zone. Drainage network capacity assessed at ${w.drainage}% — critically below the 60% safe threshold. Historical flood frequency of ${w.floodHistory} events in last 5 years confirms chronic vulnerability.\n\nComposite Readiness Score: ${w.score}/100 (RED ALERT)\n\nIMD 72-hr forecast: Continued heavy rainfall expected.\n\nRecommended Actions:\n• Deploy emergency pumps at drainage choke points\n• Pre-position NDRF teams at ward entry points\n• Issue evacuation advisory for sub-3m elevation zones\n• Activate flood shelters at ward community centers`,
-  medium: (w) => `Ward ${w.name} (${w.city}) shows MODERATE flood risk requiring active monitoring and precautionary measures.\n\nKey findings: Rainfall intensity of ${w.rainfall}mm approaches warning levels. Elevation at ${w.elevation}m provides partial protection. Drainage at ${w.drainage}% requires maintenance before peak monsoon.\n\nComposite Readiness Score: ${w.score}/100 (WATCH ZONE)\n\nRecommended Actions:\n• Schedule pre-monsoon drain cleaning\n• Set up community warning points\n• Coordinate with local ward councillors`,
-  low: (w) => `Ward ${w.name} (${w.city}) demonstrates ADEQUATE flood preparedness for the current season.\n\nKey findings: Rainfall within manageable range at ${w.rainfall}mm. Elevated terrain at ${w.elevation}m provides good natural drainage. Infrastructure at ${w.drainage}% capacity — within safe operational parameters.\n\nComposite Readiness Score: ${w.score}/100 (SAFE ZONE)\n\nRecommended Actions:\n• Continue routine drain maintenance\n• Update community flood response plans`
-};
-
 // ============================================================
-// SCORING ENGINE
+// API HELPERS
 // ============================================================
-function computeScore(w) {
-  const maxRain = 250, minRain = 80;
-  const maxElev = 600, minElev = 2;
-  const maxDrain = 80, minDrain = 10;
-  const maxHist = 6, minHist = 0;
-
-  // Normalize each factor (higher = riskier)
-  const rainRisk = (w.rainfall - minRain) / (maxRain - minRain);
-  const elevSafety = (w.elevation - minElev) / (maxElev - minElev);
-  const drainSafety = (w.drainage - minDrain) / (maxDrain - minDrain);
-  const histRisk = (w.floodHistory - minHist) / (maxHist - minHist);
-
-  // Composite risk score (higher = more risk = lower readiness)
-  const riskComposite = (rainRisk * 0.40) + ((1 - elevSafety) * 0.30) + ((1 - drainSafety) * 0.20) + (histRisk * 0.10);
-
-  // Readiness = inverse of risk, normalized to 0-100
-  const readiness = Math.round((1 - riskComposite) * 100);
-  return Math.max(5, Math.min(95, readiness));
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`API ${path} → ${res.status}: ${body.slice(0, 200)}`);
+  }
+  return res.json();
 }
 
+function showApiError(context, err) {
+  console.error(`[VarshaMitra] ${context}:`, err);
+  showToast('error', `⚠ ${context}: ${err.message || err}`);
+}
+
+// ============================================================
+// SCORING HELPERS  (mirrors backend compute_flood_readiness_score)
+// ============================================================
 function getClass(score) {
   if (score <= 40) return 'red';
   if (score <= 70) return 'amber';
@@ -1185,46 +381,91 @@ function getStatusLabel(score) {
   return 'SAFE ZONE';
 }
 
-// Pre-compute scores
-WARDS.forEach(w => {
-  w.score = computeScore(w);
-  w.cls = getClass(w.score);
-  w.rainfallRisk = Math.round((w.rainfall / 250) * 100);
-  w.elevSafety = Math.round((w.elevation / 600) * 100);
-  w.drainCap = w.drainage;
-});
+// ============================================================
+// DATA LOADING  — all ward data comes from the API
+// ============================================================
+async function loadWards() {
+  const data = await apiFetch('/api/v1/wards');
+  WARDS = data.map(w => ({
+    id:           w.id,
+    name:         w.name,
+    city:         w.city,
+    lat:          w.lat,
+    lng:          w.lng,
+    score:        w.score,
+    cls:          getClass(w.score),
+    rainfall:     w.rainfall_mm,
+    elevation:    w.elevation_m,
+    drainage:     w.drainage_pct,
+    floodHistory: w.flood_events ?? w.flood_events_5yr ?? 0,
+    pop:          w.population ?? 0,
+    riskClass:    w.risk_class,
+    weatherSrc:   w.weather_source,
+    drainageSrc:  w.drainage_source,
+    computedAt:   w.computed_at,
+  }));
+  sortedByRisk = [...WARDS].sort((a, b) => a.score - b.score);
+  avgScore = WARDS.length
+    ? Math.round(WARDS.reduce((s, w) => s + w.score, 0) / WARDS.length)
+    : 0;
+}
 
-// Sort for top risk
-const sortedByRisk = [...WARDS].sort((a,b) => a.score - b.score);
-const avgScore = Math.round(WARDS.reduce((s,w) => s + w.score, 0) / WARDS.length);
+async function loadAlerts() {
+  // Prefer live auto-alerts (recomputed from live rainfall) over stored alerts
+  try {
+    const data = await apiFetch('/api/v1/alerts/auto');
+    ALERTS = (data || []).map(a => ({
+      type:  a.severity === 'CRITICAL' ? 'critical' : 'watch',
+      title: `${a.severity === 'CRITICAL' ? 'RED ALERT' : 'WATCH'} – ${a.ward}, ${a.city}`,
+      sub:   `Score: ${a.score} · ${a.message?.split('—')[1]?.trim() ?? a.risk_class}`,
+      time:  'live',
+      score: a.score,
+    }));
+  } catch (err) {
+    showApiError('Alerts', err);
+    ALERTS = [];
+  }
+}
+
+async function loadAnalyticsSummary() {
+  const s = await apiFetch('/api/v1/analytics/summary');
+  document.getElementById('ward-count').textContent   = s.total_wards  ?? '–';
+  document.getElementById('city-count').textContent   = s.cities        ?? '–';
+  document.getElementById('avg-score').textContent    = s.avg_readiness_score ?? '–';
+  document.getElementById('analytics-avg').textContent = s.avg_readiness_score ?? '–';
+  document.getElementById('cnt-red').textContent      = s.red_alert     ?? '–';
+  document.getElementById('cnt-amber').textContent    = s.watch_zone    ?? '–';
+  document.getElementById('cnt-green').textContent    = s.safe_zone     ?? '–';
+
+  // Populate analytics cards with live data
+  const peakRainEl = document.getElementById('analytics-peak-rain');
+  if (peakRainEl) peakRainEl.textContent = s.peak_rainfall_mm ? `${s.peak_rainfall_mm}mm` : '–';
+  const drainEl = document.getElementById('analytics-drain-alerts');
+  if (drainEl) drainEl.textContent = s.drainage_alerts ?? '–';
+  const totalEl = document.getElementById('analytics-total-wards');
+  if (totalEl) totalEl.textContent = s.total_wards ?? '40';
+
+  return s;
+}
 
 // ============================================================
-// GLOBAL STATE
-// ============================================================
-let currentRole = 'municipal';
-let currentTab = 'map';
-let currentRPanel = 'detail';
-let selectedWard = null;
-let floodMap = null;
-let citizenMap = null;
-let wardMarkers = {};
-let rainfallChart, floodProbChart, radarChart;
-let analyticsChartsInit = false;
-let currentFilter = null;
-
-// ============================================================
-// INIT
+// STARTUP
 // ============================================================
 function init() {
+  // Set current year dynamically in all season labels
+  const currentYear = new Date().getFullYear();
+  ['current-season-year', 'analytics-season-year', 'analytics-rainfall-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = currentYear;
+  });
+
   generateRain();
   startClock();
-  renderAlertFeed();
-  renderTopWards();
 }
 
 function generateRain() {
   const container = document.getElementById('rain-container');
-  for (let i=0; i<60; i++) {
+  for (let i = 0; i < 60; i++) {
     const drop = document.createElement('div');
     drop.className = 'rain-drop';
     drop.style.cssText = `left:${Math.random()*100}%;height:${Math.random()*80+20}px;animation-duration:${Math.random()*1+0.5}s;animation-delay:${Math.random()*3}s`;
@@ -1257,16 +498,55 @@ function doCitizenLogin() {
   doEnterApp();
 }
 
-function doEnterApp() {
+async function doEnterApp() {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('app').classList.add('visible');
+  showToast('info', '⏳ Loading live data from IMD + ISRO + OSM…');
+
+  try {
+    await loadWards();
+  } catch (err) {
+    showApiError('Ward data', err);
+    // Render empty state rather than crashing
+    document.getElementById('ward-count').textContent = '–';
+    document.getElementById('city-count').textContent = '–';
+    document.getElementById('avg-score').textContent  = '–';
+    ['cnt-red','cnt-amber','cnt-green'].forEach(id => {
+      document.getElementById(id).textContent = '–';
+    });
+  }
+
+  await loadAlerts();
+
+  try {
+    await loadAnalyticsSummary();
+  } catch (err) {
+    showApiError('Analytics summary', err);
+  }
+
   setTimeout(() => {
     initMap();
     initCharts();
     renderWardTable();
   }, 100);
-  showToast('info', 'VarshaMitra loaded. IMD + ISRO data synced.');
-  setTimeout(() => showToast('warn', '⚠ Red Alert: 2 wards require immediate attention'), 2500);
+
+  renderAlertFeed();
+  renderTopWards();
+  showToast('success', `✓ VarshaMitra loaded. ${WARDS.length} wards · Live rainfall active.`);
+
+  // Poll for fresh scores every 5 minutes
+  setInterval(async () => {
+    try {
+      await loadWards();
+      await loadAlerts();
+      renderTopWards();
+      renderAlertFeed();
+      renderWardMarkers(currentFilter);
+      showToast('info', '🔄 Live data refreshed');
+    } catch (err) {
+      showApiError('Auto-refresh', err);
+    }
+  }, 5 * 60 * 1000);
 }
 
 function doLogout() {
@@ -1315,30 +595,21 @@ function getTileOptions() {
 // MAP
 // ============================================================
 function initMap() {
+  if (floodMap) { floodMap.invalidateSize(); return; }
   floodMap = L.map('flood-map', { zoomControl:false, attributionControl:true }).setView([19.076, 78.8], 5);
   floodTileLayer = L.tileLayer(getTileUrl(), getTileOptions()).addTo(floodMap);
   L.control.zoom({ position:'bottomright' }).addTo(floodMap);
   renderWardMarkers();
-  document.getElementById('ward-count').textContent = WARDS.length;
-  document.getElementById('city-count').textContent = 5;
-  document.getElementById('avg-score').textContent = avgScore;
-  document.getElementById('analytics-avg').textContent = avgScore;
-  const r = WARDS.filter(w=>w.cls==='red').length;
-  const a = WARDS.filter(w=>w.cls==='amber').length;
-  const g = WARDS.filter(w=>w.cls==='green').length;
-  document.getElementById('cnt-red').textContent = r;
-  document.getElementById('cnt-amber').textContent = a;
-  document.getElementById('cnt-green').textContent = g;
 }
 
 function getMarkerColor(ward) {
-  if (ward.cls === 'red') return '#ff453a';
+  if (ward.cls === 'red')   return '#ff453a';
   if (ward.cls === 'amber') return '#ff9f0a';
   return '#32d74b';
 }
 
 function renderWardMarkers(filter) {
-  // Clear existing
+  if (!floodMap) return;
   Object.values(wardMarkers).forEach(m => floodMap.removeLayer(m));
   wardMarkers = {};
   WARDS.forEach(ward => {
@@ -1347,42 +618,170 @@ function renderWardMarkers(filter) {
     const radius = 8 + (ward.pop / 200000);
     const marker = L.circleMarker([ward.lat, ward.lng], {
       radius: Math.min(radius, 18),
-      fillColor: color,
-      color: color,
-      weight: 2,
-      opacity: 0.9,
-      fillOpacity: 0.6
+      fillColor: color, color: color,
+      weight: 2, opacity: 0.9, fillOpacity: 0.6
     });
-    const popupHTML = `
+    const srcBadge = ward.weatherSrc === 'open_meteo'
+      ? '<span style="color:var(--green);font-size:9px">● Live</span>'
+      : '<span style="color:var(--amber);font-size:9px">● Cached</span>';
+    marker.bindPopup(`
       <div style="min-width:180px">
         <div class="popup-name">${ward.name}</div>
-        <div style="font-size:10px;color:#7090b0;font-family:var(--font-mono)">${ward.city} · Ward ${ward.id}</div>
+        <div style="font-size:10px;color:#7090b0;font-family:var(--font-mono)">${ward.city} · Ward ${ward.id} ${srcBadge}</div>
         <div class="popup-score" style="color:${color}">${ward.score}</div>
         <div style="font-size:10px;font-family:var(--font-mono);color:${color};margin-bottom:6px">${getStatusLabel(ward.score)}</div>
-        <div class="popup-detail">🌧 Rainfall: ${ward.rainfall}mm</div>
-        <div class="popup-detail">⛰ Elevation: ${ward.elevation}m</div>
-        <div class="popup-detail">🏗 Drainage: ${ward.drainage}%</div>
+        <div class="popup-detail">🌧 Rainfall: ${ward.rainfall?.toFixed(1) ?? '–'}mm</div>
+        <div class="popup-detail">⛰ Elevation: ${ward.elevation?.toFixed(1) ?? '–'}m</div>
+        <div class="popup-detail">🏗 Drainage: ${ward.drainage?.toFixed(1) ?? '–'}%</div>
         <div class="popup-detail">📅 Flood Events: ${ward.floodHistory} in 5yr</div>
         <button onclick="selectWard(${ward.id})" style="margin-top:8px;width:100%;padding:5px;background:${color};color:#000;border:none;border-radius:2px;font-family:var(--font-display);font-size:10px;font-weight:700;letter-spacing:1px;cursor:pointer">VIEW DETAIL ▶</button>
-      </div>`;
-    marker.bindPopup(popupHTML);
+      </div>`);
     marker.on('click', () => selectWard(ward.id));
     marker.addTo(floodMap);
     wardMarkers[ward.id] = marker;
-    // Pulsing effect for red alerts
     if (ward.cls === 'red') {
       const pulse = L.circleMarker([ward.lat, ward.lng], {
-        radius: 20, fillColor: 'transparent', color: color, weight: 1, opacity: 0.4, fillOpacity: 0
+        radius: 20, fillColor: 'transparent', color, weight: 1, opacity: 0.4, fillOpacity: 0
       }).addTo(floodMap);
-      wardMarkers['pulse_'+ward.id] = pulse;
+      wardMarkers['pulse_' + ward.id] = pulse;
     }
   });
+}
+
+// ── Map Layer Groups ──────────────────────────────────────
+let rainfallLayerGroup = null;
+let drainageLayerGroup = null;
+let riskLayerVisible = true;
+
+function getRainfallColor(mm) {
+  if (mm >= 200) return { fill: '#ff453a', border: '#ff453a', opacity: 0.45 }; // Extreme
+  if (mm >= 150) return { fill: '#ff6b35', border: '#ff6b35', opacity: 0.40 }; // Very Heavy
+  if (mm >= 100) return { fill: '#ff9f0a', border: '#ff9f0a', opacity: 0.35 }; // Heavy
+  if (mm >= 50)  return { fill: '#00d4ff', border: '#00d4ff', opacity: 0.30 }; // Moderate
+  return              { fill: '#32d74b', border: '#32d74b', opacity: 0.25 }; // Light
+}
+
+function getDrainageColor(pct) {
+  if (pct >= 60) return { fill: '#32d74b', border: '#32d74b', opacity: 0.35 }; // Good
+  if (pct >= 40) return { fill: '#ff9f0a', border: '#ff9f0a', opacity: 0.35 }; // Moderate
+  if (pct >= 25) return { fill: '#ff6b35', border: '#ff6b35', opacity: 0.40 }; // Poor
+  return              { fill: '#ff453a', border: '#ff453a', opacity: 0.45 }; // Critical
+}
+
+function renderRainfallLayer() {
+  if (rainfallLayerGroup) { floodMap.removeLayer(rainfallLayerGroup); rainfallLayerGroup = null; }
+  rainfallLayerGroup = L.layerGroup();
+
+  WARDS.forEach(ward => {
+    const mm = ward.rainfall ?? 0;
+    const style = getRainfallColor(mm);
+
+    // Outer glow ring
+    L.circleMarker([ward.lat, ward.lng], {
+      radius: 28 + (mm / 15),
+      fillColor: style.fill, color: style.border,
+      weight: 1, opacity: 0.15, fillOpacity: style.opacity * 0.4
+    }).addTo(rainfallLayerGroup);
+
+    // Inner intensity ring
+    L.circleMarker([ward.lat, ward.lng], {
+      radius: 14 + (mm / 20),
+      fillColor: style.fill, color: style.border,
+      weight: 2, opacity: 0.6, fillOpacity: style.opacity
+    }).bindTooltip(`🌧 ${ward.name}: ${mm.toFixed(1)}mm`, {
+      className: 'rainfall-tooltip', direction: 'top', offset: [0, -10]
+    }).addTo(rainfallLayerGroup);
+
+    // Rainfall value label for high-rainfall wards
+    if (mm >= 100) {
+      L.marker([ward.lat, ward.lng], {
+        icon: L.divIcon({
+          className: 'rainfall-label',
+          html: `<div style="
+            background: rgba(0,0,0,0.7); color: ${style.fill};
+            padding: 2px 6px; border-radius: 3px;
+            font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+            white-space: nowrap; border: 1px solid ${style.fill}33;
+            text-shadow: 0 0 6px ${style.fill};
+          ">${mm.toFixed(0)}mm</div>`,
+          iconSize: [50, 18], iconAnchor: [25, -15]
+        })
+      }).addTo(rainfallLayerGroup);
+    }
+  });
+
+  rainfallLayerGroup.addTo(floodMap);
+}
+
+function renderDrainageLayer() {
+  if (drainageLayerGroup) { floodMap.removeLayer(drainageLayerGroup); drainageLayerGroup = null; }
+  drainageLayerGroup = L.layerGroup();
+
+  WARDS.forEach(ward => {
+    const pct = ward.drainage ?? 50;
+    const style = getDrainageColor(pct);
+
+    // Drainage capacity ring
+    L.circleMarker([ward.lat, ward.lng], {
+      radius: 22,
+      fillColor: style.fill, color: style.border,
+      weight: 2, opacity: 0.7, fillOpacity: style.opacity,
+      dashArray: pct < 30 ? '4 4' : null // Dashed border for critical drainage
+    }).bindTooltip(`🏗 ${ward.name}: ${pct.toFixed(0)}% capacity`, {
+      className: 'drainage-tooltip', direction: 'top', offset: [0, -10]
+    }).addTo(drainageLayerGroup);
+
+    // Drainage label
+    L.marker([ward.lat, ward.lng], {
+      icon: L.divIcon({
+        className: 'drainage-label',
+        html: `<div style="
+          background: rgba(0,0,0,0.7); color: ${style.fill};
+          padding: 2px 6px; border-radius: 3px;
+          font-size: 10px; font-weight: 700; font-family: 'JetBrains Mono', monospace;
+          white-space: nowrap; border: 1px solid ${style.fill}33;
+        ">${pct < 30 ? '⚠ ' : ''}${pct.toFixed(0)}%</div>`,
+        iconSize: [50, 18], iconAnchor: [25, -15]
+      })
+    }).addTo(drainageLayerGroup);
+  });
+
+  drainageLayerGroup.addTo(floodMap);
 }
 
 function toggleLayer(layer) {
   const btn = document.getElementById('btn-' + layer);
   btn.classList.toggle('active');
-  showToast('info', `${layer} layer ${btn.classList.contains('active') ? 'enabled' : 'disabled'}`);
+  const isActive = btn.classList.contains('active');
+
+  if (layer === 'risk') {
+    riskLayerVisible = isActive;
+    if (isActive) {
+      renderWardMarkers(currentFilter);
+    } else {
+      Object.values(wardMarkers).forEach(m => floodMap.removeLayer(m));
+      wardMarkers = {};
+    }
+    showToast('info', `🎯 Risk markers ${isActive ? 'shown' : 'hidden'}`);
+  }
+  else if (layer === 'rain') {
+    if (isActive) {
+      renderRainfallLayer();
+      showToast('info', '🌧 Rainfall intensity layer enabled');
+    } else {
+      if (rainfallLayerGroup) { floodMap.removeLayer(rainfallLayerGroup); rainfallLayerGroup = null; }
+      showToast('info', '🌧 Rainfall layer disabled');
+    }
+  }
+  else if (layer === 'drain') {
+    if (isActive) {
+      renderDrainageLayer();
+      showToast('info', '🏗 Drainage capacity layer enabled');
+    } else {
+      if (drainageLayerGroup) { floodMap.removeLayer(drainageLayerGroup); drainageLayerGroup = null; }
+      showToast('info', '🏗 Drainage layer disabled');
+    }
+  }
 }
 
 function filterMap(cls) {
@@ -1393,9 +792,11 @@ function filterMap(cls) {
 }
 
 function simulateAlert() {
-  const highRisk = sortedByRisk[Math.floor(Math.random()*3)];
+  if (!sortedByRisk.length) return;
+  const highRisk = sortedByRisk[Math.floor(Math.random() * 3)];
   showToast('error', `⚠️ FLOOD RISK ALERT: ${highRisk.name}, ${highRisk.city} — HIGH RISK in Next 72 Hours`);
-  document.getElementById('alert-count').textContent = parseInt(document.getElementById('alert-count').textContent) + 1;
+  document.getElementById('alert-count').textContent =
+    parseInt(document.getElementById('alert-count').textContent) + 1;
 }
 
 // ============================================================
@@ -1405,13 +806,10 @@ function selectWard(id) {
   const ward = WARDS.find(w => w.id === id);
   if (!ward) return;
   selectedWard = ward;
-  // Highlight
   document.querySelectorAll('.ward-item').forEach(el => el.classList.toggle('active', el.dataset.id == id));
-  // Switch to detail panel
   switchRPanel('detail');
   switchTab('map');
   renderWardDetail(ward);
-  // Pan map
   if (floodMap) floodMap.setView([ward.lat, ward.lng], 13);
   updateMLPrediction(ward);
 }
@@ -1420,17 +818,23 @@ function renderWardDetail(ward) {
   const color = getMarkerColor(ward);
   const statusLabel = getStatusLabel(ward.score);
   const badgeCls = ward.cls === 'red' ? 'badge-critical' : ward.cls === 'amber' ? 'badge-watch' : 'badge-safe';
-  const riskLevel = ward.cls === 'red' ? 'high' : ward.cls === 'amber' ? 'medium' : 'low';
 
   const rainfallPct = Math.round((ward.rainfall / 250) * 100);
-  const elevPct = Math.min(100, Math.round((ward.elevation / 100) * 100));
-  const histPct = Math.round((ward.floodHistory / 6) * 100);
-  const drainPct = ward.drainage;
+  const elevPct     = Math.min(100, Math.round((ward.elevation / 100) * 100));
+  const histPct     = Math.round((ward.floodHistory / 6) * 100);
+  const drainPct    = ward.drainage;
+
+  const srcLine = ward.weatherSrc
+    ? `<div style="font-size:9px;color:var(--text-muted);font-family:var(--font-mono);margin-top:2px">
+         🌐 Weather: ${ward.weatherSrc} · Drainage: ${ward.drainageSrc ?? '–'}
+       </div>`
+    : '';
 
   document.getElementById('rpanel-detail').innerHTML = `
     <div class="ward-detail-header">
       <div class="wd-name">Ward ${ward.id} – ${ward.name}</div>
       <div class="wd-city">${ward.city} Municipal Corporation</div>
+      ${srcLine}
       <div class="wd-badges">
         <span class="badge ${badgeCls}">${statusLabel}</span>
         <span class="badge badge-info">Pop: ${(ward.pop/1000).toFixed(0)}K</span>
@@ -1451,15 +855,15 @@ function renderWardDetail(ward) {
 
     <div class="sec-hdr">Risk Factor Analysis (Weighted)</div>
     <div class="metric-row">
-      <div class="metric-header"><span class="metric-name">🌧 Rainfall Intensity <span style="color:var(--text-muted)">(40%)</span></span><span class="metric-val" style="color:${rainfallPct>70?'var(--red)':'var(--amber)'}">${ward.rainfall}mm</span></div>
+      <div class="metric-header"><span class="metric-name">🌧 Rainfall Intensity <span style="color:var(--text-muted)">(40%)</span></span><span class="metric-val" style="color:${rainfallPct>70?'var(--red)':'var(--amber)'}">${ward.rainfall?.toFixed(1) ?? '–'}mm</span></div>
       <div class="metric-bar"><div class="metric-fill" style="width:${rainfallPct}%;background:${rainfallPct>70?'var(--red)':'var(--amber)'}"></div></div>
     </div>
     <div class="metric-row">
-      <div class="metric-header"><span class="metric-name">⛰ Terrain Elevation <span style="color:var(--text-muted)">(30%)</span></span><span class="metric-val" style="color:${elevPct>30?'var(--green)':'var(--red)'}">${ward.elevation}m</span></div>
+      <div class="metric-header"><span class="metric-name">⛰ Terrain Elevation <span style="color:var(--text-muted)">(30%)</span></span><span class="metric-val" style="color:${elevPct>30?'var(--green)':'var(--red)'}">${ward.elevation?.toFixed(1) ?? '–'}m</span></div>
       <div class="metric-bar"><div class="metric-fill" style="width:${Math.min(100,elevPct*2)}%;background:${elevPct>30?'var(--green)':'var(--red)'}"></div></div>
     </div>
     <div class="metric-row">
-      <div class="metric-header"><span class="metric-name">🏗 Drainage Capacity <span style="color:var(--text-muted)">(20%)</span></span><span class="metric-val" style="color:${drainPct>50?'var(--green)':'var(--red)'}">${drainPct}%</span></div>
+      <div class="metric-header"><span class="metric-name">🏗 Drainage Capacity <span style="color:var(--text-muted)">(20%)</span></span><span class="metric-val" style="color:${drainPct>50?'var(--green)':'var(--red)'}">${ward.drainage?.toFixed(1) ?? '–'}%</span></div>
       <div class="metric-bar"><div class="metric-fill" style="width:${drainPct}%;background:${drainPct>50?'var(--green)':'var(--red)'}"></div></div>
     </div>
     <div class="metric-row">
@@ -1473,10 +877,28 @@ function renderWardDetail(ward) {
         <div class="ai-dot"></div>
         <div class="ai-title">Ollama LLM · Ward Intelligence Report</div>
       </div>
-      <div class="ai-text" id="ai-text-${ward.id}">${AI_REPORTS[riskLevel](ward)}</div>
+      <div class="ai-text" id="ai-text-${ward.id}">⏳ Generating AI assessment…</div>
     </div>
   `;
   renderMiniGauge(`gaugeChart-${ward.id}`, ward.score, color);
+  loadAIReport(ward);
+}
+
+async function loadAIReport(ward) {
+  const el = document.getElementById(`ai-text-${ward.id}`);
+  if (!el) return;
+  try {
+    const data = await apiFetch(`/api/v1/wards/${ward.id}/report`);
+    const text = data.report || 'No report available.';
+    el.textContent = '';
+    let i = 0;
+    const iv = setInterval(() => {
+      el.textContent += text[i++];
+      if (i >= text.length) clearInterval(iv);
+    }, 12);
+  } catch (err) {
+    el.textContent = `⚠ Could not load AI report: ${err.message}`;
+  }
 }
 
 function renderMiniGauge(canvasId, score, color) {
@@ -1484,172 +906,184 @@ function renderMiniGauge(canvasId, score, color) {
     const el = document.getElementById(canvasId);
     if (!el) return;
     const ctx = el.getContext('2d');
-    const pct = score / 100;
-    const startAngle = Math.PI;
-    const endAngle = Math.PI + (Math.PI * pct);
     el.width = 160; el.height = 80;
     ctx.clearRect(0, 0, 160, 80);
-    // Background arc
     ctx.beginPath();
     ctx.arc(80, 80, 65, Math.PI, 2*Math.PI);
     ctx.strokeStyle = 'rgba(255,255,255,0.06)';
     ctx.lineWidth = 12; ctx.stroke();
-    // Score arc
     ctx.beginPath();
-    ctx.arc(80, 80, 65, startAngle, endAngle);
+    ctx.arc(80, 80, 65, Math.PI, Math.PI + Math.PI * (score / 100));
     ctx.strokeStyle = color; ctx.lineWidth = 12;
     ctx.lineCap = 'round'; ctx.stroke();
   }, 50);
 }
 
 // ============================================================
-// CHARTS
+// CHARTS  (sidebar + right panel)
 // ============================================================
 function initCharts() {
   const chartDefaults = {
-    responsive:true, maintainAspectRatio:false,
-    plugins:{ legend:{ labels:{ color:'#7090b0', font:{size:10, family:"'JetBrains Mono'"} }}},
-    scales:{
-      x:{ ticks:{ color:'#405070', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' }},
-      y:{ ticks:{ color:'#405070', font:{size:10} }, grid:{ color:'rgba(255,255,255,0.04)' }}
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#7090b0', font: { size: 10, family: "'JetBrains Mono'" } } } },
+    scales: {
+      x: { ticks: { color: '#405070', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+      y: { ticks: { color: '#405070', font: { size: 10 } }, grid: { color: 'rgba(255,255,255,0.04)' } }
     }
   };
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const rainfallData = [12,8,15,32,68,195,247,210,145,72,28,10];
-  const floodProbData = [5,4,8,18,35,72,88,80,55,25,10,4];
 
+  // Rainfall bar chart — populated from API
   rainfallChart = new Chart(document.getElementById('rainfallChart').getContext('2d'), {
-    type:'bar',
-    data:{
-      labels: months,
-      datasets:[{
-        label:'Rainfall (mm)',
-        data: rainfallData,
-        backgroundColor: months.map((_,i)=>`rgba(0,212,255,${0.2+i*0.04})`),
-        borderColor:'rgba(0,212,255,0.6)', borderWidth:1, borderRadius:2
-      }]
-    },
-    options:{...chartDefaults, plugins:{ legend:{ display:false }}}
+    type: 'bar',
+    data: { labels: [], datasets: [{ label: 'Rainfall (mm)', data: [], backgroundColor: [], borderColor: 'rgba(0,212,255,0.6)', borderWidth: 1, borderRadius: 2 }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } } }
   });
 
   floodProbChart = new Chart(document.getElementById('floodProbChart').getContext('2d'), {
-    type:'line',
-    data:{
-      labels: months,
-      datasets:[{
-        label:'Flood Probability (%)',
-        data: floodProbData,
-        borderColor:'var(--amber)',
-        backgroundColor:'rgba(255,159,10,0.1)',
-        fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'var(--amber)'
-      }]
-    },
-    options:{...chartDefaults, plugins:{legend:{display:false}}}
+    type: 'line',
+    data: { labels: [], datasets: [{ label: 'Flood Probability (%)', data: [], borderColor: 'var(--amber)', backgroundColor: 'rgba(255,159,10,0.1)', fill: true, tension: 0.4, pointRadius: 3, pointBackgroundColor: 'var(--amber)' }] },
+    options: { ...chartDefaults, plugins: { legend: { display: false } } }
   });
 
   radarChart = new Chart(document.getElementById('radarChart').getContext('2d'), {
-    type:'radar',
-    data:{
-      labels:['Rainfall','Elevation','Drainage','Flood Hist','Population'],
-      datasets:[{
-        label:'Risk Factors',
-        data:[75, 60, 55, 70, 65],
-        borderColor:'rgba(255,69,58,0.8)',
-        backgroundColor:'rgba(255,69,58,0.15)',
-        pointBackgroundColor:'var(--red)'
-      }]
+    type: 'radar',
+    data: {
+      labels: ['Rainfall','Elevation Risk','Drainage Risk','Flood Hist','Population'],
+      datasets: [{ label: 'Risk Factors', data: [0,0,0,0,0], borderColor: 'rgba(255,69,58,0.8)', backgroundColor: 'rgba(255,69,58,0.15)', pointBackgroundColor: 'var(--red)' }]
     },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ display:false }},
-      scales:{ r:{ ticks:{color:'#405070',font:{size:8}}, grid:{color:'rgba(255,255,255,0.06)'}, pointLabels:{color:'#7090b0',font:{size:9}} }}
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: { r: { ticks: { color: '#405070', font: { size: 8 } }, grid: { color: 'rgba(255,255,255,0.06)' }, pointLabels: { color: '#7090b0', font: { size: 9 } } } }
     }
   });
+
+  loadRainfallChart();
 }
 
-function updateCharts(ward) {
-  if (!ward) return;
-  if (radarChart) {
-    const rr = Math.round((ward.rainfall/250)*100);
-    const er = Math.round((1 - ward.elevation/600)*100);
-    const dr = 100 - ward.drainage;
-    const hr = Math.round((ward.floodHistory/6)*100);
-    const pr = Math.round((ward.pop/850000)*100);
-    radarChart.data.datasets[0].data = [rr, er, dr, hr, pr];
-    radarChart.data.datasets[0].label = ward.name;
-    radarChart.update();
+async function loadRainfallChart() {
+  try {
+    const data = await apiFetch('/api/v1/analytics/rainfall');
+    const months = data.months;
+    // Aggregate across all cities for the main sidebar chart
+    const combined = months.map((_, i) =>
+      Object.values(data.data).reduce((s, cityArr) => s + (cityArr[i] || 0), 0)
+    );
+    rainfallChart.data.labels = months;
+    rainfallChart.data.datasets[0].data = combined;
+    rainfallChart.data.datasets[0].backgroundColor = months.map((_, i) => `rgba(0,212,255,${0.2 + i * 0.04})`);
+    rainfallChart.update();
+
+    // Derive flood probability from rainfall (normalised to 0-100)
+    const maxRain = Math.max(...combined, 1);
+    floodProbChart.data.labels = months;
+    floodProbChart.data.datasets[0].data = combined.map(v => Math.round((v / maxRain) * 90));
+    floodProbChart.update();
+  } catch (err) {
+    showApiError('Rainfall chart', err);
   }
 }
 
-function initAnalyticsCharts() {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep'];
-  const gridOpts = { color:'rgba(255,255,255,0.04)' };
-  const tickOpts = { color:'#405070', font:{size:10} };
+function updateCharts(ward) {
+  if (!ward || !radarChart) return;
+  const rr = Math.round((ward.rainfall / 250) * 100);
+  const er = Math.round((1 - ward.elevation / 600) * 100);
+  const dr = 100 - ward.drainage;
+  const hr = Math.round((ward.floodHistory / 6) * 100);
+  const pr = ward.pop ? Math.round((ward.pop / 850000) * 100) : 50;
+  radarChart.data.datasets[0].data  = [rr, er, dr, hr, pr];
+  radarChart.data.datasets[0].label = ward.name;
+  radarChart.update();
+}
+
+// ============================================================
+// ANALYTICS TAB CHARTS
+// ============================================================
+async function initAnalyticsCharts() {
+  const gridOpts = { color: 'rgba(255,255,255,0.04)' };
+  const tickOpts = { color: '#405070', font: { size: 10 } };
+
+  // Multi-city rainfall bar chart
+  let rainfallData = { months: [], data: {} };
+  try {
+    rainfallData = await apiFetch('/api/v1/analytics/rainfall');
+  } catch (err) { showApiError('Analytics rainfall', err); }
+
+  const months9 = (rainfallData.months || []).slice(0, 9);
+  const palette = [
+    'rgba(0,212,255,0.5)', 'rgba(255,159,10,0.5)',
+    'rgba(255,69,58,0.5)', 'rgba(50,215,75,0.5)', 'rgba(180,120,255,0.5)'
+  ];
+  const rainfallDatasets = Object.entries(rainfallData.data || {}).map(([city, vals], i) => ({
+    label: city, data: vals.slice(0, 9),
+    backgroundColor: palette[i % palette.length], borderRadius: 2
+  }));
 
   new Chart(document.getElementById('analyticsRainfallChart').getContext('2d'), {
-    type:'bar',
-    data:{
-      labels:months,
-      datasets:[
-        { label:'Mumbai', data:[12,8,25,60,120,240,310,275,180], backgroundColor:'rgba(0,212,255,0.5)', borderRadius:2 },
-        { label:'Chennai', data:[15,12,20,40,90,185,215,200,165], backgroundColor:'rgba(255,159,10,0.5)', borderRadius:2 },
-        { label:'Kolkata', data:[20,15,30,65,110,210,280,250,170], backgroundColor:'rgba(255,69,58,0.5)', borderRadius:2 },
-        { label:'Delhi', data:[8,5,12,25,60,95,125,110,85], backgroundColor:'rgba(50,215,75,0.5)', borderRadius:2 },
-      ]
-    },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ labels:{color:'#7090b0',font:{size:10,family:"'JetBrains Mono'"}} }}, scales:{ x:{ticks:tickOpts,grid:gridOpts}, y:{ticks:tickOpts,grid:gridOpts} }}
+    type: 'bar',
+    data: { labels: months9, datasets: rainfallDatasets },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#7090b0', font: { size: 10, family: "'JetBrains Mono'" } } } }, scales: { x: { ticks: tickOpts, grid: gridOpts }, y: { ticks: tickOpts, grid: gridOpts } } }
   });
 
-  const cities = ['Mumbai','Pune','Delhi','Chennai','Kolkata'];
-  const cityAvgScores = cities.map(city => {
-    const ws = WARDS.filter(w=>w.city===city);
-    return Math.round(ws.reduce((s,w)=>s+w.score,0)/ws.length);
+  // City avg readiness score — from live ward data
+  const cities    = [...new Set(WARDS.map(w => w.city))];
+  const cityScores = cities.map(city => {
+    const ws = WARDS.filter(w => w.city === city);
+    return ws.length ? Math.round(ws.reduce((s, w) => s + w.score, 0) / ws.length) : 0;
   });
 
   new Chart(document.getElementById('analyticsCityChart').getContext('2d'), {
-    type:'bar',
-    data:{
-      labels:cities,
-      datasets:[{ label:'Avg Readiness Score', data:cityAvgScores, backgroundColor:cityAvgScores.map(s=>s<=40?'rgba(255,69,58,0.6)':s<=70?'rgba(255,159,10,0.6)':'rgba(50,215,75,0.6)'), borderRadius:3 }]
-    },
-    options:{responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}}, scales:{x:{ticks:tickOpts,grid:gridOpts},y:{ticks:tickOpts,grid:gridOpts,max:100}}}
+    type: 'bar',
+    data: { labels: cities, datasets: [{ label: 'Avg Readiness Score', data: cityScores, backgroundColor: cityScores.map(s => s<=40?'rgba(255,69,58,0.6)':s<=70?'rgba(255,159,10,0.6)':'rgba(50,215,75,0.6)'), borderRadius: 3 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: tickOpts, grid: gridOpts }, y: { ticks: tickOpts, grid: gridOpts, max: 100 } } }
   });
 
-  const redC = WARDS.filter(w=>w.cls==='red').length;
-  const ambC = WARDS.filter(w=>w.cls==='amber').length;
-  const grnC = WARDS.filter(w=>w.cls==='green').length;
+  // Risk distribution doughnut — from live ward data
+  const redC = WARDS.filter(w => w.cls === 'red').length;
+  const ambC = WARDS.filter(w => w.cls === 'amber').length;
+  const grnC = WARDS.filter(w => w.cls === 'green').length;
 
   new Chart(document.getElementById('analyticsPieChart').getContext('2d'), {
-    type:'doughnut',
-    data:{
-      labels:['Red Alert','Watch Zone','Safe Zone'],
-      datasets:[{ data:[redC,ambC,grnC], backgroundColor:['rgba(255,69,58,0.7)','rgba(255,159,10,0.7)','rgba(50,215,75,0.7)'], borderColor:['#ff453a','#ff9f0a','#32d74b'], borderWidth:2 }]
+    type: 'doughnut',
+    data: {
+      labels: ['Red Alert','Watch Zone','Safe Zone'],
+      datasets: [{ data: [redC, ambC, grnC], backgroundColor: ['rgba(255,69,58,0.7)','rgba(255,159,10,0.7)','rgba(50,215,75,0.7)'], borderColor: ['#ff453a','#ff9f0a','#32d74b'], borderWidth: 2 }]
     },
-    options:{responsive:true,maintainAspectRatio:false, plugins:{legend:{position:'bottom',labels:{color:'#7090b0',font:{size:10,family:"'JetBrains Mono'"},padding:8}}}}
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { color: '#7090b0', font: { size: 10, family: "'JetBrains Mono'" }, padding: 8 } } } }
   });
 
-  const scatterData = WARDS.map(w=>({x:w.elevation,y:w.score,label:w.name}));
+  // Elevation vs score scatter — live ward data
   new Chart(document.getElementById('analyticsScatterChart').getContext('2d'), {
-    type:'scatter',
-    data:{datasets:[{ data:scatterData, backgroundColor:'rgba(0,212,255,0.4)', borderColor:'rgba(0,212,255,0.8)', pointRadius:5 }]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{title:{display:true,text:'Elevation (m)',color:'#405070',font:{size:9}},ticks:tickOpts,grid:gridOpts},y:{title:{display:true,text:'Readiness Score',color:'#405070',font:{size:9}},ticks:tickOpts,grid:gridOpts}}}
+    type: 'scatter',
+    data: { datasets: [{ data: WARDS.map(w => ({ x: w.elevation, y: w.score, label: w.name })), backgroundColor: 'rgba(0,212,255,0.4)', borderColor: 'rgba(0,212,255,0.8)', pointRadius: 5 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { title: { display: true, text: 'Elevation (m)', color: '#405070', font: { size: 9 } }, ticks: tickOpts, grid: gridOpts }, y: { title: { display: true, text: 'Readiness Score', color: '#405070', font: { size: 9 } }, ticks: tickOpts, grid: gridOpts } } }
   });
 
-  const hours = Array.from({length:24},(_,i)=>`${i}:00`);
-  const forecastData = hours.map((_,i) => {
-    const base = [5,4,3,3,4,8,12,18,25,35,48,58,65,70,62,55,48,40,35,30,25,20,14,8];
-    return base[i] || 0;
-  });
-  new Chart(document.getElementById('analyticsForecastChart').getContext('2d'), {
-    type:'line',
-    data:{labels:hours.filter((_,i)=>i%3===0),datasets:[{
-      label:'Rainfall (mm/hr)',
-      data:forecastData.filter((_,i)=>i%3===0),
-      borderColor:'var(--cyan)', backgroundColor:'rgba(0,212,255,0.08)',
-      fill:true, tension:0.4, pointRadius:3, pointBackgroundColor:'var(--cyan)'
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{ticks:tickOpts,grid:gridOpts},y:{ticks:tickOpts,grid:gridOpts}}}
-  });
+  // 72-h forecast from live weather API
+  try {
+    const weather = await apiFetch('/api/v1/weather/live');
+    // Average 72h forecast across all cities
+    const forecasts = Object.values(weather).map(c => c.forecast_72h || [0,0,0]);
+    const avgForecast = [0,1,2].map(i => {
+      const vals = forecasts.map(f => f[i] || 0);
+      return Math.round(vals.reduce((a,b)=>a+b,0) / vals.length);
+    });
+    new Chart(document.getElementById('analyticsForecastChart').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: ['Day +1', 'Day +2', 'Day +3'],
+        datasets: [{
+          label: 'Avg Forecast Rainfall (mm)',
+          data: avgForecast,
+          backgroundColor: avgForecast.map(v => v > 100 ? 'rgba(255,69,58,0.6)' : v > 50 ? 'rgba(255,159,10,0.6)' : 'rgba(0,212,255,0.5)'),
+          borderRadius: 4,
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: tickOpts, grid: gridOpts }, y: { ticks: tickOpts, grid: gridOpts } } }
+    });
+  } catch (err) {
+    showApiError('Forecast chart', err);
+  }
 }
 
 // ============================================================
@@ -1657,7 +1091,11 @@ function initAnalyticsCharts() {
 // ============================================================
 function renderAlertFeed() {
   const container = document.getElementById('alert-feed');
-  container.innerHTML = ALERTS.slice(0,4).map(a => `
+  if (!ALERTS.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px">No active alerts</div>';
+    return;
+  }
+  container.innerHTML = ALERTS.slice(0, 4).map(a => `
     <div class="alert-item ${a.type}">
       <div class="alert-title">${a.title}</div>
       <div class="alert-sub">${a.sub} · ${a.time}</div>
@@ -1668,6 +1106,10 @@ function renderAlertFeed() {
 function renderTopWards() {
   const container = document.getElementById('top-wards-list');
   const top10 = sortedByRisk.slice(0, 10);
+  if (!top10.length) {
+    container.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px">Loading…</div>';
+    return;
+  }
   container.innerHTML = top10.map((w, i) => `
     <div class="ward-item" data-id="${w.id}" onclick="selectWard(${w.id})">
       <div class="ward-rank">${i+1}</div>
@@ -1684,16 +1126,25 @@ function renderTopWards() {
 // ============================================================
 function renderWardTable(filter = '') {
   const tbody = document.getElementById('ward-table-body');
-  const data = WARDS.filter(w => !filter || w.name.toLowerCase().includes(filter.toLowerCase()) || w.city.toLowerCase().includes(filter.toLowerCase()));
+  const data = WARDS.filter(w =>
+    !filter ||
+    w.name.toLowerCase().includes(filter.toLowerCase()) ||
+    w.city.toLowerCase().includes(filter.toLowerCase())
+  );
+  if (!data.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:20px;text-align:center;color:var(--text-muted)">
+      ${WARDS.length ? 'No matching wards' : '⏳ Loading ward data…'}</td></tr>`;
+    return;
+  }
   tbody.innerHTML = data.map(w => {
     const badgeCls = w.cls === 'red' ? 'badge-critical' : w.cls === 'amber' ? 'badge-watch' : 'badge-safe';
     return `<tr style="border-bottom:1px solid var(--border);transition:background 0.15s" onmouseover="this.style.background='rgba(0,212,255,0.04)'" onmouseout="this.style.background=''">
       <td style="padding:9px 14px;font-size:12px;font-weight:500">${w.name} <span style="color:var(--text-muted);font-size:10px;font-family:var(--font-mono)">#${w.id}</span></td>
       <td style="padding:9px 14px;font-size:11px;color:var(--text-secondary);font-family:var(--font-mono)">${w.city}</td>
       <td style="padding:9px 14px;text-align:center"><span class="ward-score-badge score-${w.cls}">${w.score}</span></td>
-      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.rainfall}mm</td>
-      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.elevation}m</td>
-      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.drainage}%</td>
+      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.rainfall?.toFixed(1) ?? '–'}mm</td>
+      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.elevation?.toFixed(1) ?? '–'}m</td>
+      <td style="padding:9px 14px;text-align:center;font-family:var(--font-mono);font-size:11px">${w.drainage?.toFixed(1) ?? '–'}%</td>
       <td style="padding:9px 14px;text-align:center"><span class="badge ${badgeCls}" style="font-size:8px">${getStatusLabel(w.score)}</span></td>
       <td style="padding:9px 14px;text-align:center">
         <button onclick="selectWard(${w.id});switchTab('map')" style="padding:4px 10px;background:transparent;border:1px solid var(--border);color:var(--cyan);font-family:var(--font-display);font-size:9px;letter-spacing:1px;cursor:pointer;border-radius:2px;text-transform:uppercase">VIEW</button>
@@ -1710,14 +1161,13 @@ function filterWardTableCity(c) { renderWardTable(document.getElementById('ward-
 // CITIZEN MAP
 // ============================================================
 function initCitizenMap() {
-  citizenMap = L.map('citizen-map', { zoomControl:false, attributionControl:true }).setView([19.076, 78.8], 5);
+  citizenMap = L.map('citizen-map', { zoomControl: false, attributionControl: true }).setView([19.076, 78.8], 5);
   citizenTileLayer = L.tileLayer(getTileUrl(), getTileOptions()).addTo(citizenMap);
-  L.control.zoom({ position:'bottomright' }).addTo(citizenMap);
-  L.control.zoom({ position:'bottomright' }).addTo(citizenMap);
+  L.control.zoom({ position: 'bottomright' }).addTo(citizenMap);
   WARDS.forEach(ward => {
     const color = getMarkerColor(ward);
     L.circleMarker([ward.lat, ward.lng], {
-      radius: 8, fillColor: color, color: color, weight: 2, opacity: 0.9, fillOpacity: 0.5
+      radius: 8, fillColor: color, color, weight: 2, opacity: 0.9, fillOpacity: 0.5
     }).addTo(citizenMap).on('click', () => showCitizenWard(ward));
   });
 }
@@ -1751,25 +1201,28 @@ function showCitizenWard(ward) {
   const card = document.getElementById('citizen-result-card');
   card.classList.add('show');
   const color = getMarkerColor(ward);
-  document.getElementById('cr-name').textContent = ward.name;
-  document.getElementById('cr-city').textContent = `${ward.city} Municipal Corporation · Ward ${ward.id}`;
+  document.getElementById('cr-name').textContent  = ward.name;
+  document.getElementById('cr-city').textContent  = `${ward.city} Municipal Corporation · Ward ${ward.id}`;
   document.getElementById('cr-score').style.color = color;
   document.getElementById('cr-score').textContent = ward.score;
 
   const badgeCls = ward.cls === 'red' ? 'badge-critical' : ward.cls === 'amber' ? 'badge-watch' : 'badge-safe';
-  document.getElementById('cr-badges').innerHTML = `<span class="badge ${badgeCls}">${getStatusLabel(ward.score)}</span><span class="badge badge-info">Pop: ${(ward.pop/1000).toFixed(0)}K</span>`;
+  document.getElementById('cr-badges').innerHTML =
+    `<span class="badge ${badgeCls}">${getStatusLabel(ward.score)}</span>` +
+    `<span class="badge badge-info">Pop: ${(ward.pop/1000).toFixed(0)}K</span>`;
 
   const riskPct = Math.round((ward.rainfall / 250) * 100);
   const elevPct = Math.min(100, ward.elevation * 0.5);
-  document.getElementById('cr-rain').textContent = `${ward.rainfall}mm`;
-  document.getElementById('cr-elev').textContent = `${ward.elevation}m`;
-  document.getElementById('cr-drain').textContent = `${ward.drainage}%`;
-  document.getElementById('cr-rain-bar').style.cssText = `width:${riskPct}%;background:${riskPct>70?'var(--red)':'var(--amber)'}`;
-  document.getElementById('cr-elev-bar').style.cssText = `width:${Math.min(100,elevPct*2)}%;background:${ward.elevation>50?'var(--green)':'var(--red)'}`;
+  document.getElementById('cr-rain').textContent  = `${ward.rainfall?.toFixed(1) ?? '–'}mm`;
+  document.getElementById('cr-elev').textContent  = `${ward.elevation?.toFixed(1) ?? '–'}m`;
+  document.getElementById('cr-drain').textContent = `${ward.drainage?.toFixed(1) ?? '–'}%`;
+  document.getElementById('cr-rain-bar').style.cssText  = `width:${riskPct}%;background:${riskPct>70?'var(--red)':'var(--amber)'}`;
+  document.getElementById('cr-elev-bar').style.cssText  = `width:${Math.min(100,elevPct*2)}%;background:${ward.elevation>50?'var(--green)':'var(--red)'}`;
   document.getElementById('cr-drain-bar').style.cssText = `width:${ward.drainage}%;background:${ward.drainage>50?'var(--green)':'var(--red)'}`;
 
   const tips = SAFETY_TIPS[ward.cls];
-  document.getElementById('cr-safety-tips').innerHTML = `<div style="font-size:9px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono);margin-bottom:6px">Safety Recommendations</div>` +
+  document.getElementById('cr-safety-tips').innerHTML =
+    `<div style="font-size:9px;letter-spacing:1px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono);margin-bottom:6px">Safety Recommendations</div>` +
     tips.map(t => `<div class="safety-tip" style="border-color:${t.color};color:${t.color}">${t.tip}</div>`).join('');
 }
 
@@ -1779,39 +1232,47 @@ function showCitizenWard(ward) {
 function generateReport() {
   if (!selectedWard) { showToast('error', 'Please select a ward first'); return; }
   switchRPanel('detail');
-  const textEl = document.getElementById(`ai-text-${selectedWard.id}`);
-  if (!textEl) return;
-  const riskLevel = selectedWard.cls === 'red' ? 'high' : selectedWard.cls === 'amber' ? 'medium' : 'low';
-  const fullText = AI_REPORTS[riskLevel](selectedWard);
-  textEl.textContent = '';
-  let i = 0;
-  const interval = setInterval(() => {
-    textEl.textContent += fullText[i];
-    i++;
-    if (i >= fullText.length) clearInterval(interval);
-  }, 15);
-  showToast('success', `AI report generating for ${selectedWard.name}...`);
+  const el = document.getElementById(`ai-text-${selectedWard.id}`);
+  if (el) { el.textContent = '⏳ Re-generating AI assessment…'; }
+  loadAIReport(selectedWard);
+  showToast('success', `AI report generating for ${selectedWard.name}…`);
 }
 
-function updateMLPrediction(ward) {
+async function updateMLPrediction(ward) {
   const mlEl = document.getElementById('ml-prediction');
   if (!mlEl) return;
-  const riskScore = ((ward.rainfall/250)*40 + (1-ward.elevation/600)*30 + (1-ward.drainage/100)*20 + (ward.floodHistory/6)*10).toFixed(2);
-  const xgbProb = Math.min(98, Math.round(parseFloat(riskScore) * 100));
-  mlEl.innerHTML = `
-    <div style="margin-bottom:6px;color:var(--cyan)">XGBoost v2.1 Prediction</div>
-    <div>Ward: <span style="color:var(--text-primary)">${ward.name}, ${ward.city}</span></div>
-    <div>Flood Probability: <span style="color:${xgbProb>60?'var(--red)':xgbProb>30?'var(--amber)':'var(--green)'};font-weight:700">${xgbProb}%</span></div>
-    <div>XGBoost Risk Score: <span style="color:var(--cyan)">${riskScore}</span></div>
-    <div style="margin-top:6px;color:var(--text-muted)">Features: rainfall(40%), elevation(30%),<br>drainage(20%), flood history(10%)</div>
-    <div style="margin-top:4px;color:var(--text-muted)">Model accuracy: <span style="color:var(--green)">87.4%</span> (CV)</div>
-  `;
+  mlEl.innerHTML = '<div style="color:var(--text-muted)">⏳ Loading ML prediction…</div>';
+  try {
+    const data = await apiFetch('/api/v1/score/compute', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ward_id:       ward.id,
+        rainfall_mm:   ward.rainfall,
+        elevation_m:   ward.elevation,
+        drainage_pct:  ward.drainage,
+        flood_events:  ward.floodHistory,
+      })
+    });
+    const prob = Math.round((data.composite_risk ?? 0) * 100);
+    const color = prob > 60 ? 'var(--red)' : prob > 30 ? 'var(--amber)' : 'var(--green)';
+    mlEl.innerHTML = `
+      <div style="margin-bottom:6px;color:var(--cyan)">XGBoost v2.1 Prediction</div>
+      <div>Ward: <span style="color:var(--text-primary)">${ward.name}, ${ward.city}</span></div>
+      <div>Flood Probability: <span style="color:${color};font-weight:700">${prob}%</span></div>
+      <div>Readiness Score: <span style="color:var(--cyan)">${data.score ?? '–'}/100</span></div>
+      <div style="margin-top:6px;color:var(--text-muted)">Features: rainfall(40%), elevation(30%),<br>drainage(20%), flood history(10%)</div>
+    `;
+  } catch (err) {
+    mlEl.innerHTML = `<div style="color:var(--text-muted)">⚠ Prediction unavailable: ${err.message}</div>`;
+  }
 }
 
 function sendAlert() {
   if (!selectedWard) { showToast('error', 'Select a ward first'); return; }
   showToast('warn', `📢 Alert sent for Ward ${selectedWard.name}, ${selectedWard.city}`);
-  document.getElementById('alert-count').textContent = parseInt(document.getElementById('alert-count').textContent) + 1;
+  document.getElementById('alert-count').textContent =
+    parseInt(document.getElementById('alert-count').textContent) + 1;
 }
 
 function deployPumps() {
@@ -1821,27 +1282,13 @@ function deployPumps() {
 
 function viewHistory() {
   if (!selectedWard) { showToast('error', 'Select a ward first'); return; }
-  showModal(`Flood History – ${selectedWard.name}`, `
+  const ward = selectedWard;
+  showModal(`Flood History – ${ward.name}`, `
     <div style="font-family:var(--font-mono);font-size:11px;color:var(--text-secondary)">
-      <div style="color:var(--cyan);margin-bottom:12px;font-size:10px;letter-spacing:1px">HISTORICAL FLOOD EVENTS · ${selectedWard.name}, ${selectedWard.city}</div>
-      ${generateHistoryData(selectedWard)}
+      <div style="color:var(--cyan);margin-bottom:12px;font-size:10px;letter-spacing:1px">HISTORICAL FLOOD EVENTS · ${ward.name}, ${ward.city}</div>
+      <div style="color:var(--text-muted)">Recorded flood events (5yr): <span style="color:var(--text-primary)">${ward.floodHistory}</span></div>
+      <div style="margin-top:8px;color:var(--text-muted)">For full NDMA event logs visit <a href="https://ndma.gov.in" target="_blank" style="color:var(--cyan)">ndma.gov.in</a></div>
     </div>`);
-}
-
-function generateHistoryData(ward) {
-  const events = [];
-  for (let y = 2019; y <= 2023; y++) {
-    if (Math.random() < ward.floodHistory / 6) {
-      const months = ['June','July','August','September'];
-      const m = months[Math.floor(Math.random()*months.length)];
-      const severity = ward.cls === 'red' ? 'Major' : 'Moderate';
-      events.push(`<div style="padding:8px;border-left:2px solid var(--red);margin-bottom:6px;background:rgba(255,69,58,0.05)">
-        <span style="color:var(--red)">${y} ${m}</span> – ${severity} flooding event<br>
-        <span style="color:var(--text-muted)">Rainfall: ${ward.rainfall + Math.floor(Math.random()*50)}mm · Duration: ${Math.floor(Math.random()*48+6)}hr</span>
-      </div>`);
-    }
-  }
-  return events.length ? events.join('') : '<div style="color:var(--green)">No major flood events recorded in last 5 years.</div>';
 }
 
 function exportPDF() {
@@ -1850,8 +1297,8 @@ function exportPDF() {
 }
 
 function exportAllPDF() {
-  showToast('info', 'Generating PDF report for all 40 wards...');
-  setTimeout(() => showToast('success', '✓ All wards PDF exported successfully'), 2000);
+  showToast('info', `Generating PDF report for all ${WARDS.length} wards…`);
+  setTimeout(() => showToast('success', `✓ All wards PDF exported successfully`), 2000);
 }
 
 function showExportModal(wardId) {
@@ -1871,19 +1318,16 @@ function showExportModal(wardId) {
         Population: ${(ward.pop/1000).toFixed(0)}K residents
       </div>
       <div class="pdf-section">
-        <div class="pdf-section-title">Readiness Score</div>
-        <span style="font-family:var(--font-hero);font-size:28px;color:${color}">${ward.score}/100</span> — <span style="color:${color}">${getStatusLabel(ward.score)}</span>
+        <div class="pdf-section-title">Readiness Score (Live)</div>
+        <span style="font-family:var(--font-hero);font-size:28px;color:${color}">${ward.score}/100</span>
+        — <span style="color:${color}">${getStatusLabel(ward.score)}</span>
       </div>
       <div class="pdf-section">
-        <div class="pdf-section-title">Risk Factors</div>
-        Rainfall Intensity: ${ward.rainfall}mm (Weight: 40%)<br>
-        Terrain Elevation: ${ward.elevation}m (Weight: 30%)<br>
-        Drainage Capacity: ${ward.drainage}% (Weight: 20%)<br>
-        Historical Floods: ${ward.floodHistory} events/5yr (Weight: 10%)
-      </div>
-      <div class="pdf-section">
-        <div class="pdf-section-title">AI Assessment</div>
-        ${AI_REPORTS[ward.cls==='red'?'high':ward.cls==='amber'?'medium':'low'](ward).substring(0,200)}...
+        <div class="pdf-section-title">Risk Factors (Live Data)</div>
+        Rainfall Intensity: ${ward.rainfall?.toFixed(1) ?? '–'}mm  (40%) · Source: ${ward.weatherSrc ?? '–'}<br>
+        Terrain Elevation: ${ward.elevation?.toFixed(1) ?? '–'}m   (30%)<br>
+        Drainage Capacity: ${ward.drainage?.toFixed(1) ?? '–'}%   (20%) · Source: ${ward.drainageSrc ?? '–'}<br>
+        Historical Floods: ${ward.floodHistory} events/5yr (10%)
       </div>
       <div style="margin-top:12px;display:flex;gap:8px">
         <button class="drain-submit" onclick="confirmExport('${ward.name}')">⬇ Download PDF</button>
@@ -1897,27 +1341,38 @@ function confirmExport(wardName) {
   showToast('success', `✓ PDF report for ${wardName} exported`);
 }
 
-function submitDrainReport() {
-  const ward = document.getElementById('drain-ward').value;
-  const desc = document.getElementById('drain-desc').value;
+async function submitDrainReport() {
+  const ward = document.getElementById('drain-ward').value.trim();
+  const desc = document.getElementById('drain-desc').value.trim();
   if (!ward || !desc) { showToast('error', 'Please fill in all fields'); return; }
-  document.getElementById('drain-ward').value = '';
-  document.getElementById('drain-desc').value = '';
-  showToast('success', `✓ Drain report submitted for ${ward}. Ticket #DR${Math.floor(Math.random()*90000+10000)}`);
+  try {
+    const data = await apiFetch('/api/v1/drain-reports', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ward_name: ward, city: 'Unknown', description: desc })
+    });
+    document.getElementById('drain-ward').value = '';
+    document.getElementById('drain-desc').value = '';
+    showToast('success', `✓ Drain report submitted. Ticket ${data.ticket_id}`);
+  } catch (err) {
+    showToast('error', `Submission failed: ${err.message}`);
+  }
 }
 
 // ============================================================
 // MODAL & TOAST
 // ============================================================
 function showModal(title, content) {
-  document.getElementById('modal-content').innerHTML = `<div class="modal-title">${title}</div><div class="modal-sub">Generated by VarshaMitra Intelligence Platform</div>${content}`;
+  document.getElementById('modal-content').innerHTML =
+    `<div class="modal-title">${title}</div>` +
+    `<div class="modal-sub">Generated by VarshaMitra Intelligence Platform</div>` +
+    content;
   document.getElementById('modal-overlay').style.display = 'flex';
 }
 
 function closeModal(e) {
-  if (!e || e.target === document.getElementById('modal-overlay')) {
+  if (!e || e.target === document.getElementById('modal-overlay'))
     document.getElementById('modal-overlay').style.display = 'none';
-  }
 }
 
 function showToast(type, msg) {
@@ -1928,27 +1383,18 @@ function showToast(type, msg) {
   container.appendChild(toast);
   setTimeout(() => toast.remove(), 4000);
 }
+
 function toggleTheme() {
   const root = document.documentElement;
-  const btn = document.getElementById("theme-btn");
-
-  const current = root.getAttribute("data-theme") || "dark";
-  const next = current === "dark" ? "light" : "dark";
-
-  root.setAttribute("data-theme", next);
-  localStorage.setItem("theme", next);
-
-  // Update icon with animation
-  btn.style.transform = "rotate(360deg) scale(0.8)";
-  setTimeout(() => {
-    btn.textContent = next === "dark" ? "🌙" : "☀️";
-    btn.style.transform = "";
-  }, 200);
-
-  // Update Chart.js text colors
-  const textColor = next === "dark" ? "#7090b0" : "#5c6b7a";
-  const gridColor = next === "dark" ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.06)";
-  const tickColor = next === "dark" ? "#405070" : "#6a7a8a";
+  const btn  = document.getElementById('theme-btn');
+  const next = (root.getAttribute('data-theme') || 'dark') === 'dark' ? 'light' : 'dark';
+  root.setAttribute('data-theme', next);
+  localStorage.setItem('theme', next);
+  btn.style.transform = 'rotate(360deg) scale(0.8)';
+  setTimeout(() => { btn.textContent = next === 'dark' ? '🌙' : '☀️'; btn.style.transform = ''; }, 200);
+  const textColor = next === 'dark' ? '#7090b0' : '#5c6b7a';
+  const gridColor = next === 'dark' ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)';
+  const tickColor = next === 'dark' ? '#405070' : '#6a7a8a';
   [rainfallChart, floodProbChart, radarChart].forEach(chart => {
     if (!chart) return;
     const opts = chart.options;
@@ -1957,22 +1403,18 @@ function toggleTheme() {
     if (opts.plugins?.legend?.labels) opts.plugins.legend.labels.color = textColor;
     chart.update();
   });
-
-  showToast('info', next === "light" ? "☀️ Light mode activated" : "🌙 Dark mode activated");
+  showToast('info', next === 'light' ? '☀️ Light mode activated' : '🌙 Dark mode activated');
 }
 
-// load saved theme on refresh
 (function () {
-  const saved = localStorage.getItem("theme") || "dark";
-  document.documentElement.setAttribute("data-theme", saved);
-  // btn may not exist yet at script parse time, so use DOMContentLoaded
-  document.addEventListener("DOMContentLoaded", () => {
-    const btn = document.getElementById("theme-btn");
-    if (btn) btn.textContent = saved === "dark" ? "🌙" : "☀️";
+  const saved = localStorage.getItem('theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-btn');
+    if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
   });
-  // also try immediately
-  const btn = document.getElementById("theme-btn");
-  if (btn) btn.textContent = saved === "dark" ? "🌙" : "☀️";
+  const btn = document.getElementById('theme-btn');
+  if (btn) btn.textContent = saved === 'dark' ? '🌙' : '☀️';
 })();
 
 // ============================================================
@@ -1981,4 +1423,3 @@ function toggleTheme() {
 init();
 </script>
 </body>
-</html>

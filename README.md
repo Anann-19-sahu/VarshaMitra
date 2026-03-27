@@ -10,19 +10,22 @@
 ```
 varsha-mitra/
 ├── frontend/
-│   └── index.html              # Complete React-equivalent SPA (Leaflet + Chart.js)
+│   ├── VarshaMitra.html    # Main HTML interface
+│   └── VarshaMitra.css     # Styling and themes
 ├── backend/
-│   ├── main.py                 # FastAPI REST API server
-│   ├── tasks.py                # Celery background tasks
-│   ├── Dockerfile              # Container definition
-│   └── requirements.txt        # Python dependencies
+│   ├── main.py             # FastAPI REST API server
+│   ├── weather_service.py  # IMD rainfall data integration
+│   ├── elevation_service.py # SRTM30m elevation data
+│   ├── drainage_service.py # OSM drainage network analysis
+│   ├── disaster_service.py # NDMA flood history data
+│   ├── scoring_engine.py   # Rule-based flood scoring
+│   ├── Dockerfile          # Container definition
+│   └── requirements.txt    # Python dependencies
 ├── ml/
-│   └── scoring_engine.py       # XGBoost + GeoPandas ML pipeline
+│   └── scoring_engine.py   # XGBoost + GeoPandas ML pipeline
 ├── db/
-│   └── schema.sql              # PostgreSQL + PostGIS schema
-└── deploy/
-    ├── docker-compose.yml      # Full stack deployment
-    └── nginx.conf              # Reverse proxy config
+│   └── schema.sql          # PostgreSQL + PostGIS schema
+└── docker-compose.yml      # Full stack deployment
 ```
 
 ---
@@ -37,9 +40,9 @@ varsha-mitra/
         ┌───────────────┬───────────────┼───────────────┬───────────────┐
         │               │               │               │               │
    ┌─────────┐   ┌─────────────┐  ┌──────────┐  ┌──────────┐  ┌─────────────┐
-   │ Frontend│   │  FastAPI    │  │PostgreSQL│  │  Celery  │  │   Ollama    │
-   │(Leaflet)│◄──│  REST API   │◄─│+ PostGIS │  │ Workers  │  │ LLaMA 3.2  │
-   │Chart.js │   │  /api/v1/   │  │ Spatial  │  │ Scoring  │  │ AI Reports │
+   │Frontend │   │  FastAPI    │  │PostgreSQL│  │  Redis   │  │   Ollama    │
+   │(HTML/CSS│◄──│  REST API   │◄─│+ PostGIS │  │ (Cache)  │  │ LLaMA 3.2  │
+   │+ JS)    │   │  /api/v1/   │  │ Spatial  │  │ Broker   │  │ AI Reports │
    └─────────┘   └─────────────┘  └──────────┘  └──────────┘  └─────────────┘
                         │
               ┌─────────┴──────────┐
@@ -58,46 +61,42 @@ varsha-mitra/
 
 ## 🚀 Quick Start
 
-### 1. Prerequisites
-```bash
-# Install Docker + Docker Compose
-curl -fsSL https://get.docker.com | sh
-sudo usermod -aG docker $USER
+### Prerequisites
+- Docker + Docker Compose
+- 8GB+ RAM recommended
+- Optional: NVIDIA GPU for Ollama LLM acceleration
 
-# Install NVIDIA Container Toolkit (for Ollama GPU)
-# Optional - CPU-only Ollama also works
-```
-
-### 2. Clone & Setup
+### 1. Clone & Setup
 ```bash
-git clone https://github.com/your-org/varsha-mitra.git
+git clone <repository-url>
 cd varsha-mitra
-cp .env.example .env
-# Edit .env with your credentials
 ```
 
-### 3. Launch Full Stack
+### 2. Launch Full Stack
 ```bash
 docker compose up -d
 ```
 
-### 4. Initialize Database + ML Model
+### 3. Initialize Database
+The database schema is automatically applied on first startup via Docker entrypoint.
+
+### 4. Access Services
+| Service | URL | Description |
+|---------|-----|-------------|
+| Frontend Dashboard | http://localhost | Main web interface |
+| API Documentation | http://localhost:8000/docs | FastAPI interactive docs |
+| API Health Check | http://localhost:8000/api/v1/health | Service status |
+| Ollama API | http://localhost:11434 | Local LLM endpoint |
+| Flower (Celery Monitor) | http://localhost:5555 | Task queue monitoring |
+
+### 5. Optional: Train ML Model
 ```bash
-# Apply schema migrations
-docker exec -it varsha_db psql -U varsha -d varsha_mitra -f /docker-entrypoint-initdb.d/01_schema.sql
+# Access the running API container
+docker exec -it varsha_api bash
 
-# Train XGBoost model
-docker exec -it varsha_worker python ml/scoring_engine.py
-
-# Pull Ollama LLM (llama3.2 ~2GB)
-docker exec -it varsha_ollama ollama pull llama3.2
+# Run ML training (requires data files)
+cd ml && python scoring_engine.py
 ```
-
-### 5. Access
-| Service | URL |
-|---------|-----|
-| Frontend Dashboard | http://localhost |
-| API Documentation | http://localhost:8000/docs |
 | Celery Monitor | http://localhost:5555 |
 | Ollama API | http://localhost:11434 |
 
@@ -105,20 +104,22 @@ docker exec -it varsha_ollama ollama pull llama3.2
 
 ## 🖥️ Frontend Features
 
-### Municipal Dashboard (Login Required)
-- **Live Leaflet Map** — Ward polygons color-coded by risk level
-- **Top 10 High-Risk Wards** — Sorted by readiness score
-- **Analytics Charts** — Rainfall trends, flood probability, city comparison
-- **AI Report Generator** — Ollama LLM-powered ward assessments
-- **Alert System** — Dashboard alerts with severity levels
-- **PDF Export** — Downloadable ward flood reports
-- **ML Prediction Panel** — XGBoost flood probability per ward
+### Web Dashboard (HTML/CSS/JavaScript)
+- **Interactive Map Interface** — City ward visualization with risk overlays
+- **Real-time Risk Monitoring** — Live flood readiness scores
+- **Analytics Dashboard** — Charts and statistics
+- **AI Report Generation** — Ollama-powered ward assessments
+- **Alert Management** — Active flood alerts display
+- **Citizen Portal** — Public access for ward information
 
-### Citizen Portal
-- Search ward by city name
-- View flood risk score & safety recommendations
-- Report blocked drains (creates municipal ticket)
-- Interactive citizen map
+### API-First Design
+The frontend consumes the REST API endpoints. The current implementation serves static HTML/CSS files via FastAPI, with JavaScript handling dynamic content and API calls.
+
+### Development Status
+- ✅ Backend API fully implemented
+- ✅ Database schema and services
+- 🚧 Frontend interface (HTML/CSS framework ready)
+- ✅ Docker deployment configuration
 
 ---
 
@@ -140,37 +141,67 @@ docker exec -it varsha_ollama ollama pull llama3.2
 
 ## 🤖 ML Pipeline
 
+### Current Implementation
+The system uses a **rule-based scoring engine** with configurable weights, providing real-time flood risk assessment. The XGBoost ML pipeline is available for advanced modeling.
+
+### Scoring Algorithm
 ```python
-# Train XGBoost model
-from ml.scoring_engine import FloodRiskPredictor
-
-predictor = FloodRiskPredictor()
-metrics = predictor.train()
-# Accuracy: 91.2% | F1: 0.887 | ROC-AUC: 0.952
-
-# Predict for a ward
-result = predictor.predict({
-    "rainfall_intensity": 210,    # mm
-    "mean_elevation": 8,          # metres
-    "drainage_density": 0.25,     # km drain / km²
-    "flood_events_5yr": 4,        # count
-})
-# → {"risk_class": "HIGH_RISK", "flood_probability": 0.89}
+# Rule-based flood readiness calculation
+def compute_flood_readiness_score(
+    rainfall_mm: float,
+    elevation_m: float,
+    drainage_pct: float,
+    flood_events: int
+) -> dict:
+    # Weights: rainfall(40%), elevation(30%), drainage(20%), history(10%)
+    # Returns score 0-100 and risk classification
 ```
+
+### XGBoost Model (Optional)
+The `ml/scoring_engine.py` provides:
+- **GeoPandas** for spatial data processing
+- **Rasterio** for DEM analysis
+- **XGBoost** classifier for flood probability prediction
+- **Scikit-learn** pipeline with cross-validation
+
+**Training Requirements**: Ward boundary shapefiles, historical flood data, and elevation rasters.
 
 ---
 
 ## 🗄️ API Endpoints
 
+### Core Endpoints
 ```
-GET  /api/v1/wards                    # All wards with scores
-GET  /api/v1/wards/{id}               # Single ward detail
-GET  /api/v1/wards/{id}/report        # AI-generated report
-POST /api/v1/score/compute            # Compute custom score
-POST /api/v1/drain-reports            # Citizen drain report
-GET  /api/v1/alerts/active            # Active flood alerts
-GET  /api/v1/analytics/summary        # Platform statistics
-GET  /api/v1/analytics/rainfall       # Monthly rainfall data
+GET  /api/v1/status                    # Platform status and data sources
+GET  /api/v1/health                    # Health check
+GET  /api/v1/wards                     # All wards with live flood scores
+GET  /api/v1/wards/{id}                # Single ward details
+GET  /api/v1/wards/{id}/report         # AI-generated flood report
+POST /api/v1/score/compute             # Compute custom flood score
+```
+
+### Data Services
+```
+GET  /api/v1/elevation                  # Elevation data for coordinates
+POST /api/v1/elevation/batch            # Batch elevation queries
+GET  /api/v1/wards/{id}/elevation       # Ward elevation analysis
+GET  /api/v1/drainage/network           # OSM drainage network data
+GET  /api/v1/weather/live               # Live weather data
+```
+
+### Analytics & Monitoring
+```
+GET  /api/v1/analytics/summary          # Platform-wide statistics
+GET  /api/v1/analytics/rainfall         # Monthly rainfall analytics
+GET  /api/v1/cities                     # City information
+GET  /api/v1/alerts/active              # Active flood alerts
+GET  /api/v1/alerts/auto                # Auto-generated alerts
+POST /api/v1/alerts                     # Create new alert
+```
+
+### Citizen Services
+```
+POST /api/v1/drain-reports              # Submit drain blockage report
 ```
 
 ---
@@ -178,63 +209,82 @@ GET  /api/v1/analytics/rainfall       # Monthly rainfall data
 ## 🧰 Backend Requirements
 
 ```
-fastapi==0.111.0
-uvicorn[standard]==0.29.0
-asyncpg==0.29.0
-pydantic==2.7.0
-celery[redis]==5.4.0
-geopandas==0.14.4
-rasterio==1.3.10
-xgboost==2.0.3
-scikit-learn==1.5.0
-pandas==2.2.2
-numpy==1.26.4
-httpx==0.27.0
-joblib==1.4.2
+fastapi                    # Web framework
+uvicorn[standard]         # ASGI server
+pydantic                  # Data validation
+asyncpg                   # PostgreSQL async driver
+psycopg2-binary           # PostgreSQL sync driver
+httpx                     # HTTP client for external APIs
+requests                  # HTTP requests
+geopandas                 # Geospatial data processing
+rasterio                  # Raster data processing
+xgboost                   # ML model
+scikit-learn              # ML utilities
+pandas                    # Data manipulation
+numpy                     # Numerical computing
+joblib                    # Model serialization
+shapely                   # Geometry operations
+sqlalchemy                # ORM for GeoPandas
 ```
 
 ---
 
 ## 🔒 Security
 
-- JWT token authentication for municipal officials
-- Role-based access: `ADMIN`, `MUNICIPAL`, `CITIZEN`
-- Citizen portal requires no login
-- All sensitive routes protected with `HTTPBearer`
-- CORS configured for production domains
+- **API Authentication**: HTTP Bearer token authentication (framework ready)
+- **Role-based Access**: Planned for `ADMIN`, `MUNICIPAL`, `CITIZEN` roles
+- **CORS Configuration**: Configured for cross-origin requests
+- **Input Validation**: Pydantic models for all API inputs
+- **Database Security**: PostgreSQL with proper user roles and permissions
+
+**Note**: Authentication is currently disabled for development/demo purposes. Enable in production by implementing JWT token validation.
 
 ---
 
 ## 📡 Data Sources
 
-| Dataset | Provider | Format | Resolution |
-|---------|----------|--------|-----------|
-| Rainfall | IMD (India Meteorological Dept) | CSV | Station-level |
-| Elevation DEM | ISRO Bhuvan CartoDEM | GeoTIFF | 30m |
-| Drainage Network | OpenStreetMap | Shapefile | Vector |
-| Flood History | NDMA Hazard Atlas | GeoJSON | Ward-level |
-| Ward Boundaries | Municipal GIS Portals | Shapefile | Polygon |
+| Dataset | Provider | Format | Resolution | API/Service |
+|---------|----------|--------|-----------|-------------|
+| Rainfall | Open-Meteo | JSON | Hourly/Daily | open-meteo.com |
+| Elevation DEM | OpenTopoData SRTM30m | JSON | 30m | opentopodata.org |
+| Drainage Network | OpenStreetMap | GeoJSON | Vector | overpass-api.de |
+| Flood History | ReliefWeb/NDMA | JSON | Event-level | reliefweb.int |
+| Ward Boundaries | Municipal GIS | Shapefile | Polygon | Database stored |
+
+**Note**: The system uses fallback data for development/demo when external APIs are unavailable.
 
 ---
 
 ## 🌐 Production Deployment
 
-### Vercel (Frontend)
+### Docker Compose (Recommended)
+The `docker-compose.yml` provides a complete production setup with:
+- **FastAPI API Server** (Port 8000)
+- **PostgreSQL + PostGIS** (Port 5432)
+- **Redis Cache/Broker** (Port 6379)
+- **Ollama LLM Server** (Port 11434)
+- **Nginx Reverse Proxy** (Ports 80/443)
+- **Celery Flower Monitor** (Port 5555)
+
 ```bash
-cd frontend
-npx vercel --prod
+# Production deployment
+docker compose up -d
+
+# Scale API servers if needed
+docker compose up -d --scale api=3
 ```
 
-### AWS / GCP
+### Environment Variables
 ```bash
-# Build and push images
-docker build -t varsha-api ./backend
-docker tag varsha-api:latest your-registry/varsha-api:latest
-docker push your-registry/varsha-api:latest
-
-# Deploy via ECS/Cloud Run
-# See deploy/terraform/ for Infrastructure as Code
+DATABASE_URL=postgresql://varsha:monsoon2024@db:5432/varsha_mitra
+REDIS_URL=redis://redis:6379/0
+OLLAMA_URL=http://ollama:11434
+SECRET_KEY=your-secret-key-here
+ENVIRONMENT=production
 ```
+
+### SSL/TLS Setup
+Configure SSL certificates in the nginx service volume mounts for HTTPS support.
 
 ---
 
@@ -246,4 +296,4 @@ docker push your-registry/varsha-api:latest
 ---
 
 *Built for NDMA · IMD · Municipal Corporations of India*
-*VarshaMitra v2.0 — Pre-Monsoon 2024*
+*VarshaMitra v2.0 — Pre-Monsoon 2026*

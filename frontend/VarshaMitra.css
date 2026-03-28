@@ -207,6 +207,78 @@ body {
   color:var(--cyan); font-family:var(--font-mono);
   margin-bottom:24px;
 }
+.portal-switch {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:14px;
+}
+.portal-btn {
+  border:1px solid var(--border);
+  background:rgba(0,0,0,0.25);
+  color:var(--text-secondary);
+  padding:10px 8px;
+  border-radius:3px;
+  font-family:var(--font-display);
+  letter-spacing:1px;
+  text-transform:uppercase;
+  cursor:pointer;
+}
+.portal-btn.active {
+  color:#001426;
+  background:linear-gradient(135deg, var(--cyan), #0082bd);
+  border-color:var(--cyan);
+}
+.auth-mode-switch {
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:8px;
+  margin-bottom:14px;
+}
+.mode-btn {
+  border:1px solid var(--border);
+  background:transparent;
+  color:var(--text-secondary);
+  padding:8px;
+  border-radius:3px;
+  cursor:pointer;
+  font-family:var(--font-mono);
+  font-size:11px;
+  text-transform:uppercase;
+  letter-spacing:1px;
+}
+.mode-btn.active {
+  color:var(--text-primary);
+  border-color:var(--cyan);
+  box-shadow:0 0 0 2px var(--cyan-glow) inset;
+}
+.otp-panel {
+  border:1px dashed var(--border);
+  border-radius:3px;
+  padding:10px;
+  margin-top:10px;
+}
+.secondary-btn {
+  width:100%;
+  border:1px solid var(--cyan);
+  background:transparent;
+  color:var(--cyan);
+  border-radius:3px;
+  padding:9px;
+  cursor:pointer;
+  font-family:var(--font-display);
+  letter-spacing:1px;
+  margin-bottom:8px;
+}
+.secondary-btn:hover {
+  background:var(--cyan-glow);
+}
+.login-help {
+  font-size:10px;
+  color:var(--text-secondary);
+  font-family:var(--font-mono);
+  margin-bottom:12px;
+}
 
 /* ─── MAIN APP ─────────────────────────────────────────────── */
 #app { display:none; height:100vh; flex-direction:column; }

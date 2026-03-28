@@ -202,7 +202,41 @@ POST /api/v1/alerts                     # Create new alert
 ### Citizen Services
 ```
 POST /api/v1/drain-reports              # Submit drain blockage report
+POST /api/v1/auth/citizen/signup        # Citizen signup (email+sms OTP dispatch)
+POST /api/v1/auth/citizen/verify-otp    # Activate citizen account with dual OTP
+POST /api/v1/auth/citizen/login         # Citizen login (RBAC token)
+POST /api/v1/auth/authority/login       # Authority login (pre-allotted ID)
+GET  /api/v1/auth/session               # Validate active auth token
 ```
+
+---
+
+## Authentication Provider Setup
+
+Set these environment variables before starting backend for real OTP delivery:
+
+```
+# Email OTP via SMTP
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-sender@gmail.com
+SMTP_PASSWORD=your-app-password
+SMTP_FROM_EMAIL=your-sender@gmail.com
+
+# SMS OTP via Twilio
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+TWILIO_FROM_NUMBER=+1xxxxxxxxxx
+DEFAULT_COUNTRY_CODE=+91
+
+# Optional local development override
+ALLOW_DEV_OTP_FALLBACK=false
+```
+
+Notes:
+- With `ALLOW_DEV_OTP_FALLBACK=false`, signup fails if either SMS or Email OTP delivery fails.
+- OTP values are no longer returned in API responses.
+- For local testing without providers, set `ALLOW_DEV_OTP_FALLBACK=true` and read generated OTPs from backend logs.
 
 ---
 

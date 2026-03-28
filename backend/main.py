@@ -8,18 +8,25 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import asyncpg
 import json
 import io
 import datetime
 import asyncio
 import logging
+import hashlib
+import secrets
+import os
+import smtplib
+from email.mime.text import MIMEText
 from pydantic import BaseModel
+import httpx
 from weather_service import WeatherService
 from elevation_service import ElevationService
 from drainage_service import DrainageService
 from disaster_service import DisasterService
+from auth.router import router as auth_router
 
 logger = logging.getLogger("varsha_mitra")
 
@@ -29,6 +36,7 @@ app = FastAPI(
     description="Pre-Monsoon Flood Risk Assessment for Indian Cities",
     version="2.0.0"
 )
+app.include_router(auth_router)
 
 # ─── Weather Service (singleton, shared across requests) ──────
 weather_svc   = WeatherService()
@@ -97,6 +105,25 @@ class MLPredictionRequest(BaseModel):
     drainage_pct: float
     flood_events: int
 
+class CitizenSignupRequest(BaseModel):
+    username: str
+    password: str
+    gmail: str
+    phone: str
+
+class CitizenOtpVerifyRequest(BaseModel):
+    signup_id: str
+    email_otp: str
+    sms_otp: str
+
+class CitizenLoginRequest(BaseModel):
+    identifier: str
+    password: str
+
+class AuthorityLoginRequest(BaseModel):
+    authority_id: str
+    password: str
+
 # ─── DB Connection ──────────────────────────────────────────
 DATABASE_URL = "postgresql://varsha:monsoon2024@localhost:5432/varsha_mitra"
 
@@ -106,6 +133,199 @@ async def get_db():
         yield conn
     finally:
         await conn.close()
+
+# ─── Auth Storage / RBAC ──────────────────────────────────────
+AUTH_DATA_DIR = Path(__file__).parent / "data"
+AUTH_STORE_FILE = AUTH_DATA_DIR / "auth_store.json"
+AUTH_LOCK = asyncio.Lock()
+ACTIVE_SESSIONS: Dict[str, Dict[str, Any]] = {}
+SESSION_TTL_HOURS = 12
+OTP_TTL_MINUTES = 10
+ENV = os.getenv("ENV", "dev").strip().lower()
+ALLOW_DEV_OTP_FALLBACK = os.getenv("ALLOW_DEV_OTP_FALLBACK", "false").lower() == "true"
+DEV_DUMMY_OTP = os.getenv("DEV_DUMMY_OTP", "123456")
+
+PREALLOTTED_AUTHORITIES = {
+    "AUTH-BBMP-001": {"name": "BBMP CONTROL ROOM", "password": "BBMP@2026"},
+    "AUTH-BMC-002": {"name": "BMC FLOOD CELL", "password": "BMC@2026"},
+    "AUTH-DMA-003": {"name": "STATE DMA OPS", "password": "DMA@2026"},
+}
+
+def _hash_password(password: str, salt: Optional[str] = None) -> str:
+    salt = salt or secrets.token_hex(8)
+    digest = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+    return f"{salt}${digest}"
+
+def _verify_password(password: str, password_hash: str) -> bool:
+    try:
+        salt, existing = password_hash.split("$", 1)
+    except ValueError:
+        return False
+    probe = hashlib.sha256(f"{salt}:{password}".encode("utf-8")).hexdigest()
+    return secrets.compare_digest(probe, existing)
+
+def _default_authorities():
+    return {
+        aid: {"name": meta["name"], "password_hash": _hash_password(meta["password"])}
+        for aid, meta in PREALLOTTED_AUTHORITIES.items()
+    }
+
+def _ensure_auth_store():
+    AUTH_DATA_DIR.mkdir(parents=True, exist_ok=True)
+    if not AUTH_STORE_FILE.exists():
+        payload = {
+            "citizens": [],
+            "pending_otps": [],
+            "authorities": _default_authorities()
+        }
+        AUTH_STORE_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+def _read_auth_store() -> dict:
+    _ensure_auth_store()
+    try:
+        data = json.loads(AUTH_STORE_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        data = {}
+    data.setdefault("citizens", [])
+    data.setdefault("pending_otps", [])
+    data.setdefault("authorities", _default_authorities())
+    return data
+
+def _write_auth_store(data: dict) -> None:
+    _ensure_auth_store()
+    AUTH_STORE_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
+
+def _issue_session(role: str, subject: str, display_name: str) -> dict:
+    token = secrets.token_urlsafe(32)
+    now = datetime.datetime.utcnow()
+    exp = now + datetime.timedelta(hours=SESSION_TTL_HOURS)
+    ACTIVE_SESSIONS[token] = {
+        "role": role,
+        "subject": subject,
+        "display_name": display_name,
+        "issued_at": now.isoformat(),
+        "expires_at": exp.isoformat(),
+    }
+    allowed_tabs = ["citizen"] if role == "citizen" else ["map", "analytics", "wards", "citizen"]
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "role": role,
+        "display_name": display_name,
+        "allowed_tabs": allowed_tabs,
+        "expires_at": exp.isoformat()
+    }
+
+def _cleanup_expired_sessions() -> None:
+    now = datetime.datetime.utcnow()
+    expired = []
+    for token, session in ACTIVE_SESSIONS.items():
+        try:
+            exp = datetime.datetime.fromisoformat(session["expires_at"])
+        except Exception:
+            expired.append(token)
+            continue
+        if exp <= now:
+            expired.append(token)
+    for token in expired:
+        ACTIVE_SESSIONS.pop(token, None)
+
+def _send_email_otp(gmail: str, otp: str) -> (bool, str):
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587"))
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user).strip()
+
+    if not (smtp_host and smtp_user and smtp_password and smtp_from):
+        return False, "SMTP credentials are not configured"
+
+    subject = "VarshaMitra Citizen OTP Verification"
+    body = (
+        f"Your VarshaMitra Email OTP is: {otp}\n\n"
+        f"This OTP expires in {OTP_TTL_MINUTES} minutes.\n"
+        "If you did not request this, please ignore this email."
+    )
+    msg = MIMEText(body)
+    msg["Subject"] = subject
+    msg["From"] = smtp_from
+    msg["To"] = gmail
+
+    try:
+        with smtplib.SMTP(smtp_host, smtp_port, timeout=15) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(smtp_from, [gmail], msg.as_string())
+        return True, "sent"
+    except Exception as exc:
+        logger.error(f"[AUTH] Email OTP send failed: {exc}")
+        return False, "Failed to send email OTP"
+
+async def _send_sms_otp(phone: str, otp: str) -> (bool, str):
+    sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
+    token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    from_number = os.getenv("TWILIO_FROM_NUMBER", "").strip()
+    country_code = os.getenv("DEFAULT_COUNTRY_CODE", "+91").strip()
+
+    if not (sid and token and from_number):
+        return False, "Twilio credentials are not configured"
+
+    to_number = phone if phone.startswith("+") else f"{country_code}{phone}"
+    url = f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json"
+    data = {
+        "To": to_number,
+        "From": from_number,
+        "Body": f"VarshaMitra SMS OTP: {otp}. Valid for {OTP_TTL_MINUTES} minutes.",
+    }
+    try:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            res = await client.post(url, data=data, auth=(sid, token))
+        if res.status_code >= 300:
+            logger.error(f"[AUTH] Twilio SMS OTP failed: {res.status_code} {res.text[:250]}")
+            return False, "Failed to send SMS OTP"
+        return True, "sent"
+    except Exception as exc:
+        logger.error(f"[AUTH] SMS OTP send failed: {exc}")
+        return False, "Failed to send SMS OTP"
+
+def _is_dev_mode() -> bool:
+    return ENV != "prod"
+
+def _generate_otps() -> (str, str):
+    """
+    Central OTP generation strategy:
+    - dev: deterministic dummy OTP
+    - prod: random 6-digit OTPs
+    """
+    if _is_dev_mode():
+        return DEV_DUMMY_OTP, DEV_DUMMY_OTP
+    return f"{secrets.randbelow(900000) + 100000}", f"{secrets.randbelow(900000) + 100000}"
+
+async def _deliver_or_stub_otps(username: str, gmail: str, phone: str, email_otp: str, sms_otp: str) -> (bool, str, str):
+    """
+    Deliver OTPs via providers in production mode, or bypass in dev mode.
+    Returns (ok, email_msg, sms_msg).
+    """
+    if _is_dev_mode():
+        logger.warning(
+            f"[AUTH][DEV-BYPASS] OTP sending bypassed for {username}. "
+            f"Dummy Email OTP={email_otp}, Dummy SMS OTP={sms_otp}, gmail={gmail}, phone={phone}"
+        )
+        return True, "dev-bypass", "dev-bypass"
+
+    email_ok, email_msg = _send_email_otp(gmail, email_otp)
+    sms_ok, sms_msg = await _send_sms_otp(phone, sms_otp)
+    if email_ok and sms_ok:
+        return True, email_msg, sms_msg
+
+    if ALLOW_DEV_OTP_FALLBACK:
+        logger.warning(
+            f"[AUTH] OTP providers failed; fallback enabled for {username}. "
+            f"email={email_msg}, sms={sms_msg}, emailOtp={email_otp}, smsOtp={sms_otp}"
+        )
+        return True, email_msg, sms_msg
+
+    return False, email_msg, sms_msg
 
 # ─── In-Memory Fallback Data ────────────────────────────────
 # Used when PostgreSQL is not available (standalone / dev mode)
@@ -264,6 +484,183 @@ def compute_flood_readiness_score(
     }
 
 # ─── Routes ──────────────────────────────────────────────────
+
+# ─── Authentication APIs (Citizen + Authority + RBAC) ───────
+@app.post("/api/v1/auth/citizen/signup")
+async def citizen_signup(payload: CitizenSignupRequest):
+    username = payload.username.strip()
+    password = payload.password.strip()
+    gmail = payload.gmail.strip().lower()
+    phone = payload.phone.strip()
+
+    if not username or not password or not gmail or not phone:
+        raise HTTPException(status_code=400, detail="username, password, gmail, and phone are required")
+    if not (3 <= len(username) <= 30):
+        raise HTTPException(status_code=400, detail="username must be 3-30 characters")
+    if not gmail.endswith("@gmail.com"):
+        raise HTTPException(status_code=400, detail="Only Gmail addresses are accepted")
+    if not phone.isdigit() or len(phone) != 10:
+        raise HTTPException(status_code=400, detail="phone must be exactly 10 digits")
+
+    email_otp, sms_otp = _generate_otps()
+    signup_id = secrets.token_hex(8)
+    now = datetime.datetime.utcnow()
+    expires_at = (now + datetime.timedelta(minutes=OTP_TTL_MINUTES)).isoformat()
+
+    async with AUTH_LOCK:
+        store = _read_auth_store()
+        citizens = store.get("citizens", [])
+        pending = store.get("pending_otps", [])
+        if any(c["username"].lower() == username.lower() or c["gmail"] == gmail for c in citizens):
+            raise HTTPException(status_code=409, detail="Citizen already exists")
+
+        # Remove stale or duplicate pending requests for same user/email.
+        filtered_pending = []
+        for p in pending:
+            if p.get("username", "").lower() == username.lower() or p.get("gmail") == gmail:
+                continue
+            filtered_pending.append(p)
+
+        filtered_pending.append({
+            "signup_id": signup_id,
+            "username": username,
+            "gmail": gmail,
+            "phone": phone,
+            "password_hash": _hash_password(password),
+            "email_otp": email_otp,
+            "sms_otp": sms_otp,
+            "created_at": now.isoformat(),
+            "expires_at": expires_at,
+        })
+        store["pending_otps"] = filtered_pending
+        _write_auth_store(store)
+
+    delivered_ok, email_msg, sms_msg = await _deliver_or_stub_otps(
+        username=username,
+        gmail=gmail,
+        phone=phone,
+        email_otp=email_otp,
+        sms_otp=sms_otp,
+    )
+    if not delivered_ok:
+        async with AUTH_LOCK:
+            store = _read_auth_store()
+            store["pending_otps"] = [p for p in store.get("pending_otps", []) if p.get("signup_id") != signup_id]
+            _write_auth_store(store)
+        raise HTTPException(
+            status_code=502,
+            detail=f"OTP delivery failed. email={email_msg}; sms={sms_msg}"
+        )
+
+    logger.info(f"[AUTH] OTP issued for citizen signup: {username} ({gmail}, {phone})")
+    return {
+        "message": "OTP sent to email and SMS channels",
+        "signup_id": signup_id,
+        "otp_channels": ["email", "sms"],
+        "expires_at": expires_at,
+    }
+
+@app.post("/api/v1/auth/citizen/verify-otp")
+async def citizen_verify_otp(payload: CitizenOtpVerifyRequest):
+    signup_id = payload.signup_id.strip()
+    email_otp = payload.email_otp.strip()
+    sms_otp = payload.sms_otp.strip()
+    now = datetime.datetime.utcnow()
+
+    async with AUTH_LOCK:
+        store = _read_auth_store()
+        pending = store.get("pending_otps", [])
+        match = next((p for p in pending if p.get("signup_id") == signup_id), None)
+        if not match:
+            raise HTTPException(status_code=404, detail="Pending signup not found")
+
+        expires_at = datetime.datetime.fromisoformat(match["expires_at"])
+        if expires_at < now:
+            store["pending_otps"] = [p for p in pending if p.get("signup_id") != signup_id]
+            _write_auth_store(store)
+            raise HTTPException(status_code=400, detail="OTP expired. Please signup again")
+
+        if match.get("email_otp") != email_otp or match.get("sms_otp") != sms_otp:
+            raise HTTPException(status_code=400, detail="OTP verification failed")
+
+        citizens = store.get("citizens", [])
+        if any(c["username"].lower() == match["username"].lower() or c["gmail"] == match["gmail"] for c in citizens):
+            store["pending_otps"] = [p for p in pending if p.get("signup_id") != signup_id]
+            _write_auth_store(store)
+            raise HTTPException(status_code=409, detail="Citizen already exists")
+
+        citizens.append({
+            "username": match["username"],
+            "gmail": match["gmail"],
+            "phone": match["phone"],
+            "password_hash": match["password_hash"],
+            "is_active": True,
+            "created_at": now.isoformat()
+        })
+        store["citizens"] = citizens
+        store["pending_otps"] = [p for p in pending if p.get("signup_id") != signup_id]
+        _write_auth_store(store)
+
+    return {"message": "Citizen account activated", "username": match["username"], "role": "citizen"}
+
+@app.post("/api/v1/auth/citizen/login")
+async def citizen_login(payload: CitizenLoginRequest):
+    identifier = payload.identifier.strip().lower()
+    password = payload.password.strip()
+    if not identifier or not password:
+        raise HTTPException(status_code=400, detail="identifier and password are required")
+
+    async with AUTH_LOCK:
+        store = _read_auth_store()
+        citizens = store.get("citizens", [])
+        user = next(
+            (
+                c for c in citizens
+                if c.get("is_active") and (
+                    c.get("username", "").lower() == identifier or c.get("gmail", "").lower() == identifier
+                )
+            ),
+            None
+        )
+    if not user or not _verify_password(password, user.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid citizen credentials")
+    _cleanup_expired_sessions()
+    return _issue_session(role="citizen", subject=user["username"], display_name=user["username"].upper())
+
+@app.post("/api/v1/auth/authority/login")
+async def authority_login(payload: AuthorityLoginRequest):
+    authority_id = payload.authority_id.strip().upper()
+    password = payload.password.strip()
+    if not authority_id or not password:
+        raise HTTPException(status_code=400, detail="authority_id and password are required")
+
+    async with AUTH_LOCK:
+        store = _read_auth_store()
+        authorities = store.get("authorities", {})
+        authority = authorities.get(authority_id)
+    if not authority:
+        raise HTTPException(status_code=401, detail="Unknown authority ID")
+    if not _verify_password(password, authority.get("password_hash", "")):
+        raise HTTPException(status_code=401, detail="Invalid authority credentials")
+    _cleanup_expired_sessions()
+    return _issue_session(role="authority", subject=authority_id, display_name=authority.get("name", authority_id))
+
+@app.get("/api/v1/auth/session")
+async def validate_session(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)):
+    if not credentials:
+        raise HTTPException(status_code=401, detail="Missing bearer token")
+    token = credentials.credentials
+    _cleanup_expired_sessions()
+    session = ACTIVE_SESSIONS.get(token)
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    role = session["role"]
+    return {
+        "role": role,
+        "display_name": session["display_name"],
+        "allowed_tabs": ["citizen"] if role == "citizen" else ["map", "analytics", "wards", "citizen"],
+        "expires_at": session["expires_at"]
+    }
 
 @app.get("/api/v1/status")
 async def root():

@@ -31,24 +31,13 @@
           alt="Varsha Mitra" class="login-logo-img" style="max-width:340px;">
       </div>
 
-      <div class="login-badge">🇮🇳 NDMA · IMD · ISRO Data Integration</div>
-      <div class="login-label">Access Level</div>
-      <select class="role-select" id="role-select">
-        <option value="municipal">Municipal Official – Full Access</option>
-        <option value="citizen">Citizen – Public View</option>
-      </select>
-      <div id="auth-fields">
-        <div class="login-label">Username</div>
-        <input class="login-input" id="login-user" type="text" placeholder="official@municipal.gov.in"
-          value="admin@bbmp.gov.in">
-        <div class="login-label">Password</div>
-        <input class="login-input" id="login-pass" type="password" placeholder="••••••••" value="••••••••">
-      </div>
-      <button class="login-btn" onclick="doLogin()">ACCESS PLATFORM ⟶</button>
-      <div class="login-citizen" id="citizen-link">
-        Public citizen? <a onclick="doCitizenLogin()">Enter without login →</a>
-      </div>
+    <div class="login-badge">INDIA FLOOD INTELLIGENCE GATEWAY</div>
+    <div class="portal-switch">
+      <button class="portal-btn active" id="portal-citizen-btn" onclick="switchPortal('citizen')">Citizen Portal</button>
+      <button class="portal-btn" id="portal-authority-btn" onclick="switchPortal('authority')">Authority Portal</button>
     </div>
+    <div id="auth-fields"></div>
+    <button class="login-btn" onclick="submitAuth()">ACCESS PLATFORM</button>
   </div>
 
   <!-- MAIN APP -->
@@ -144,40 +133,24 @@
             <div class="map-stat-chip">Avg Rainfall: <span id="rainfall-stat">-</span></div>
           </div>
         </div>
-        <!-- RIGHT PANEL -->
-        <div class="right-panel">
-          <div class="rpanel-tabs">
-            <div class="rpanel-tab active" onclick="switchRPanel('detail')" data-rpanel="detail">Ward Detail</div>
-            <div class="rpanel-tab" onclick="switchRPanel('chart')" data-rpanel="chart">Charts</div>
-            <div class="rpanel-tab" onclick="switchRPanel('actions')" data-rpanel="actions">Actions</div>
-          </div>
-          <div class="rpanel-content" id="rpanel-detail">
-            <div
-              style="text-align:center;padding:30px;color:var(--text-muted);font-size:11px;font-family:var(--font-mono)">
-              ← Select a ward on the map<br>or from the sidebar list
-            </div>
-          </div>
-          <div class="rpanel-content" id="rpanel-chart" style="display:none">
-            <div class="sec-hdr">Rainfall Intensity (mm)</div>
-            <div class="chart-wrap"><canvas id="rainfallChart"></canvas></div>
-            <div class="sec-hdr">Flood Probability (%)</div>
-            <div class="chart-wrap"><canvas id="floodProbChart"></canvas></div>
-            <div class="sec-hdr">Risk Factor Breakdown</div>
-            <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
-          </div>
-          <div class="rpanel-content" id="rpanel-actions" style="display:none">
-            <div class="sec-hdr">Quick Actions</div>
-            <button class="action-btn" onclick="generateReport()">📄 Generate AI Ward Report</button>
-            <button class="action-btn" onclick="exportPDF()">⬇️ Export PDF Report</button>
-            <button class="action-btn warn" onclick="sendAlert()">📢 Send Ward Alert</button>
-            <button class="action-btn danger" onclick="deployPumps()">🚒 Deploy Emergency Pumps</button>
-            <button class="action-btn" onclick="viewHistory()">📅 View Flood History</button>
-            <div class="sec-hdr" style="margin-top:8px">ML Prediction</div>
-            <div
-              style="background:var(--bg-card);border:1px solid var(--border);border-radius:3px;padding:10px;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono)"
-              id="ml-prediction">
-              XGBoost model ready. Select a ward to run prediction.
-            </div>
+        <div class="rpanel-content" id="rpanel-chart" style="display:none">
+          <div class="sec-hdr">Rainfall Intensity (mm)</div>
+          <div class="chart-wrap"><canvas id="rainfallChart"></canvas></div>
+          <div class="sec-hdr">Flood Probability (%)</div>
+          <div class="chart-wrap"><canvas id="floodProbChart"></canvas></div>
+          <div class="sec-hdr">Risk Factor Breakdown</div>
+          <div class="chart-wrap"><canvas id="radarChart"></canvas></div>
+        </div>
+        <div class="rpanel-content" id="rpanel-actions" style="display:none">
+          <div class="sec-hdr">Quick Actions</div>
+          <button class="action-btn admin-only" onclick="generateReport()">📄 Generate AI Ward Report</button>
+          <button class="action-btn" onclick="exportPDF()">⬇️ Export PDF Report</button>
+          <button class="action-btn warn admin-only" onclick="sendAlert()">📢 Send Ward Alert</button>
+          <button class="action-btn danger admin-only" onclick="deployPumps()">🚒 Deploy Emergency Pumps</button>
+          <button class="action-btn" onclick="viewHistory()">📅 View Flood History</button>
+          <div class="sec-hdr" style="margin-top:8px">ML Prediction</div>
+          <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:3px;padding:10px;font-size:10px;color:var(--text-secondary);font-family:var(--font-mono)" id="ml-prediction">
+            XGBoost model ready. Select a ward to run prediction.
           </div>
         </div>
       </div>
@@ -234,45 +207,36 @@
         </div>
       </div>
 
-      <!-- WARDS TAB -->
-      <div id="tab-wards" style="display:none;flex:1;flex-direction:column;overflow:hidden;padding:16px;">
-        <div style="display:flex;justify-content:flex-end;margin-bottom:12px;align-items:center;flex-shrink:0">
-          <input class="search-input" style="max-width:300px;padding:8px 12px" placeholder="🔍 Search ward or city..."
-            oninput="filterWardTable(this.value)" id="ward-table-search">
-        </div>
-        <div style="flex:1;overflow-y:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:4px;scroll-behavior:smooth">
-          <table style="width:100%;border-collapse:collapse" id="ward-table">
-            <thead>
-              <tr style="background:var(--bg-card2);border-bottom:1px solid var(--border)">
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:left;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  WARD</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:left;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  CITY</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  SCORE</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  RAINFALL</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  ELEVATION</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  DRAINAGE</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  STATUS</th>
-                <th
-                  style="position:sticky;top:0;z-index:10;background:var(--bg-card2);padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">
-                  ACTIONS</th>
-              </tr>
-            </thead>
-            <tbody id="ward-table-body"></tbody>
-          </table>
-        </div>
+    <!-- WARDS TAB -->
+    <div id="tab-wards" style="display:none;flex:1;overflow-y:auto;padding:16px;">
+      <div style="display:flex;gap:10px;margin-bottom:16px;align-items:center">
+        <input class="search-input" style="max-width:300px;padding:8px 12px" placeholder="Search ward..." oninput="filterWardTable(this.value)" id="ward-table-search">
+        <select class="role-select" style="max-width:180px;margin:0" onchange="filterWardTableCity(this.value)">
+          <option value="">All Cities</option>
+          <option value="Mumbai">Mumbai</option>
+          <option value="Pune">Pune</option>
+          <option value="Delhi">Delhi</option>
+          <option value="Chennai">Chennai</option>
+          <option value="Kolkata">Kolkata</option>
+        </select>
+        <button class="action-btn admin-only" style="width:auto;margin:0" onclick="exportAllPDF()">⬇ Export All</button>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:4px;overflow:hidden">
+        <table style="width:100%;border-collapse:collapse" id="ward-table">
+          <thead>
+            <tr style="background:var(--bg-card2);border-bottom:1px solid var(--border)">
+              <th style="padding:10px 14px;text-align:left;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">WARD</th>
+              <th style="padding:10px 14px;text-align:left;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">CITY</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">SCORE</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">RAINFALL</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">ELEVATION</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">DRAINAGE</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">STATUS</th>
+              <th style="padding:10px 14px;text-align:center;font-size:9px;letter-spacing:2px;color:var(--text-muted);text-transform:uppercase;font-family:var(--font-mono)">ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody id="ward-table-body"></tbody>
+        </table>
       </div>
 
       <!-- CITIZEN PORTAL TAB (embedded) -->
@@ -356,205 +320,131 @@
       <div id="modal-content"></div>
     </div>
   </div>
+</div>
 
-  <script>
-    // ============================================================
-    // CONFIG
-    // ============================================================
-    const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
-      ? 'http://localhost:8000'
-      : '';  // same-origin in production
+<script>
+// ============================================================
+// CONFIG
+// ============================================================
+const API = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+  ? 'http://localhost:8000'
+  : '';  // same-origin in production
 
-    // ============================================================
-    // STATE
-    // ============================================================
-    let WARDS = [];          // populated from API
-    let ALERTS = [];         // populated from API
-    let sortedByRisk = [];
-    let avgScore = 0;
-    let selectedWard = null;
-    let currentRole = null;
-    let currentTab = 'map';
-    let currentRPanel = 'detail';
-    let currentFilter = null;
-    let floodMap = null, citizenMap = null;
-    let wardMarkers = {};
-    let rainfallChart, floodProbChart, radarChart;
-    let analyticsChartsInit = false;
-    let analyticsCityChart, analyticsPieChart, analyticsScatterChart, analyticsForecastChart;
+// ============================================================
+// STATE
+// ============================================================
+let WARDS = [];          // populated from API
+let ALERTS = [];         // populated from API
+let sortedByRisk = [];
+let avgScore = 0;
+let selectedWard = null;
+let currentRole = null;
+let currentPortal = 'citizen';
+let citizenAuthMode = 'signin';
+let currentTab = 'map';
+let currentRPanel = 'detail';
+let currentFilter = null;
+let floodMap = null, citizenMap = null;
+let wardMarkers = {};
+let rainfallChart, floodProbChart, radarChart;
+let analyticsChartsInit = false;
+let refreshTimerId = null;
+let authToken = null;
+let signupSessionId = null;
+let pendingOtpHint = null;
+const ROLE_AUTHORITY = 'authority';
+const ROLE_CITIZEN = 'citizen';
 
-    const SAFETY_TIPS = {
-      red: [
-        { color: 'var(--red)', tip: '🚨 HIGH RISK: Evacuate low-lying areas immediately.' },
-        { color: 'var(--red)', tip: '🌊 Do not cross flooded streets or underpasses.' },
-        { color: 'var(--amber)', tip: '📦 Keep emergency kit ready: documents, medicines, water.' },
-        { color: 'var(--amber)', tip: '📱 Register on NDRF emergency SMS system.' }
-      ],
-      amber: [
-        { color: 'var(--amber)', tip: '⚠️ WATCH: Monitor local municipal alerts closely.' },
-        { color: 'var(--amber)', tip: '🏠 Move valuables to higher floors.' },
-        { color: 'var(--cyan)', tip: '🔦 Keep flashlights and spare batteries ready.' },
-        { color: 'var(--cyan)', tip: '📞 Save NDRF helpline: 011-24363260' }
-      ],
-      green: [
-        { color: 'var(--green)', tip: '✅ LOW RISK: Area is relatively safe this season.' },
-        { color: 'var(--cyan)', tip: '🧹 Clear drain covers near your property.' },
-        { color: 'var(--cyan)', tip: '📡 Stay informed via IMD weather updates.' }
-      ]
-    };
+const SAFETY_TIPS = {
+  red: [
+    { color: 'var(--red)',   tip: '🚨 HIGH RISK: Evacuate low-lying areas immediately.' },
+    { color: 'var(--red)',   tip: '🌊 Do not cross flooded streets or underpasses.' },
+    { color: 'var(--amber)', tip: '📦 Keep emergency kit ready: documents, medicines, water.' },
+    { color: 'var(--amber)', tip: '📱 Register on NDRF emergency SMS system.' }
+  ],
+  amber: [
+    { color: 'var(--amber)', tip: '⚠️ WATCH: Monitor local municipal alerts closely.' },
+    { color: 'var(--amber)', tip: '🏠 Move valuables to higher floors.' },
+    { color: 'var(--cyan)',  tip: '🔦 Keep flashlights and spare batteries ready.' },
+    { color: 'var(--cyan)',  tip: '📞 Save NDRF helpline: 011-24363260' }
+  ],
+  green: [
+    { color: 'var(--green)', tip: '✅ LOW RISK: Area is relatively safe this season.' },
+    { color: 'var(--cyan)',  tip: '🧹 Clear drain covers near your property.' },
+    { color: 'var(--cyan)',  tip: '📡 Stay informed via IMD weather updates.' }
+  ]
+};
 
-    // ============================================================
-    // API HELPERS
-    // ============================================================
-    async function apiFetch(path, opts = {}) {
-      const res = await fetch(API + path, opts);
-      if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`API ${path} → ${res.status}: ${body.slice(0, 200)}`);
-      }
-      return res.json();
-    }
+// ============================================================
+// API HELPERS
+// ============================================================
+async function apiFetch(path, opts = {}) {
+  const res = await fetch(API + path, opts);
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`API ${path} → ${res.status}: ${body.slice(0, 200)}`);
+  }
+  return res.json();
+}
 
-    function showApiError(context, err) {
-      console.error(`[VarshaMitra] ${context}:`, err);
-      showToast('error', `⚠ ${context}: ${err.message || err}`);
-    }
+function showApiError(context, err) {
+  console.error(`[VarshaMitra] ${context}:`, err);
+  showToast('error', `⚠ ${context}: ${err.message || err}`);
+}
 
-    // ============================================================
-    // SCORING HELPERS  (mirrors backend compute_flood_readiness_score)
-    // ============================================================
-    function getClass(score) {
-      if (score <= 40) return 'red';
-      if (score <= 70) return 'amber';
-      return 'green';
-    }
+// ============================================================
+// SCORING HELPERS  (mirrors backend compute_flood_readiness_score)
+// ============================================================
+function getClass(score) {
+  if (score <= 40) return 'red';
+  if (score <= 70) return 'amber';
+  return 'green';
+}
 
-    function getStatusLabel(score) {
-      if (score <= 40) return 'RED ALERT';
-      if (score <= 70) return 'WATCH ZONE';
-      return 'SAFE ZONE';
-    }
+function getStatusLabel(score) {
+  if (score <= 40) return 'RED ALERT';
+  if (score <= 70) return 'WATCH ZONE';
+  return 'SAFE ZONE';
+}
 
-    // ============================================================
-    // DATA LOADING  — all ward data comes from the API
-    // ============================================================
-    async function loadWards() {
-      const data = await apiFetch('/api/v1/wards');
-      WARDS = data.map(w => ({
-        id: w.id,
-        name: w.name,
-        city: w.city,
-        lat: w.lat,
-        lng: w.lng,
-        score: w.score,
-        cls: getClass(w.score),
-        rainfall: w.rainfall_mm,
-        elevation: w.elevation_m,
-        drainage: w.drainage_pct,
-        floodHistory: w.flood_events ?? w.flood_events_5yr ?? 0,
-        pop: w.population ?? 0,
-        riskClass: w.risk_class,
-        weatherSrc: w.weather_source,
-        drainageSrc: w.drainage_source,
-        computedAt: w.computed_at,
-      }));
-      sortedByRisk = [...WARDS].sort((a, b) => a.score - b.score);
-      avgScore = WARDS.length
-        ? Math.round(WARDS.reduce((s, w) => s + w.score, 0) / WARDS.length)
-        : 0;
+// ============================================================
+// DATA LOADING  — all ward data comes from the API
+// ============================================================
+async function loadWards() {
+  const data = await apiFetch('/api/v1/wards');
+  WARDS = data.map(w => ({
+    id:           w.id,
+    name:         w.name,
+    city:         w.city,
+    lat:          w.lat,
+    lng:          w.lng,
+    score:        w.score,
+    cls:          getClass(w.score),
+    rainfall:     w.rainfall_mm,
+    elevation:    w.elevation_m,
+    drainage:     w.drainage_pct,
+    floodHistory: w.flood_events ?? w.flood_events_5yr ?? 0,
+    pop:          w.population ?? 0,
+    riskClass:    w.risk_class,
+    weatherSrc:   w.weather_source,
+    drainageSrc:  w.drainage_source,
+    computedAt:   w.computed_at,
+  }));
+  sortedByRisk = [...WARDS].sort((a, b) => a.score - b.score);
+  avgScore = WARDS.length
+    ? Math.round(WARDS.reduce((s, w) => s + w.score, 0) / WARDS.length)
+    : 0;
+}
 
-      // Update rainfall stat chip with average rainfall across all wards
-      if (WARDS.length) {
-        const avgRainfall = Math.round(WARDS.reduce((s, w) => s + (w.rainfall || 0), 0) / WARDS.length);
-        const rainEl = document.getElementById('rainfall-stat');
-        if (rainEl) rainEl.textContent = avgRainfall + 'mm';
-      }
-    }
-
-    async function loadAlerts() {
-      // Prefer live auto-alerts (recomputed from live rainfall) over stored alerts
-      try {
-        const data = await apiFetch('/api/v1/alerts/auto');
-        ALERTS = (data || []).map(a => {
-          // Show real timestamp instead of hardcoded 'live'
-          let timeLabel = 'live';
-          if (a.generated_at) {
-            const d = new Date(a.generated_at);
-            const now = new Date();
-            const diffMin = Math.round((now - d) / 60000);
-            timeLabel = diffMin < 1 ? 'just now' : diffMin < 60 ? `${diffMin}m ago` : d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' });
-          }
-          const srcBadge = a.weather_source === 'open_meteo' ? '🟢 Live' : '🟡 Cached';
-          return {
-            type: a.severity === 'CRITICAL' ? 'critical' : 'watch',
-            title: `${a.severity === 'CRITICAL' ? 'RED ALERT' : 'WATCH'} – ${a.ward}, ${a.city}`,
-            sub: `Score: ${a.score} · ${a.message?.split('—')[1]?.trim() ?? a.risk_class}`,
-            time: `${timeLabel} · ${srcBadge}`,
-            score: a.score,
-          };
-        });
-      } catch (err) {
-        showApiError('Alerts', err);
-        ALERTS = [];
-      }
-    }
-
-    async function loadAnalyticsSummary() {
-      const s = await apiFetch('/api/v1/analytics/summary');
-      document.getElementById('ward-count').textContent = s.total_wards ?? '–';
-      document.getElementById('city-count').textContent = s.cities ?? '–';
-      document.getElementById('avg-score').textContent = s.avg_readiness_score ?? '–';
-      document.getElementById('analytics-avg').textContent = s.avg_readiness_score ?? '–';
-      document.getElementById('cnt-red').textContent = s.red_alert ?? '–';
-      document.getElementById('cnt-amber').textContent = s.watch_zone ?? '–';
-      document.getElementById('cnt-green').textContent = s.safe_zone ?? '–';
-
-      // Populate analytics cards with live data
-      const peakRainEl = document.getElementById('analytics-peak-rain');
-      if (peakRainEl) peakRainEl.textContent = s.peak_rainfall_mm ? `${s.peak_rainfall_mm}mm` : '–';
-      const drainEl = document.getElementById('analytics-drain-alerts');
-      if (drainEl) drainEl.textContent = s.drainage_alerts ?? '–';
-      const totalEl = document.getElementById('analytics-total-wards');
-      if (totalEl) totalEl.textContent = s.total_wards ?? '40';
-
-      // Also update rainfall stat chip from analytics summary
-      const rainStatEl = document.getElementById('rainfall-stat');
-      if (rainStatEl && s.peak_rainfall_mm) rainStatEl.textContent = Math.round(s.peak_rainfall_mm) + 'mm';
-
-      // Set "Last Updated" timestamp
-      const updatedEl = document.getElementById('analytics-last-updated');
-      if (updatedEl) updatedEl.textContent = new Date().toLocaleString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', day: '2-digit', month: 'short', year: 'numeric' }) + ' IST';
-
-      return s;
-    }
-
-    // ============================================================
-    // STARTUP
-    // ============================================================
-    function init() {
-      // Set current year dynamically in all season labels
-      const currentYear = new Date().getFullYear();
-      ['current-season-year', 'analytics-season-year', 'analytics-rainfall-year'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = currentYear;
-      });
-
-      generateRain();
-      startClock();
-    }
-
-    function generateRain() {
-      const container = document.getElementById('rain-container');
-      for (let i = 0; i < 60; i++) {
-        const drop = document.createElement('div');
-        drop.className = 'rain-drop';
-        drop.style.cssText = `left:${Math.random() * 100}%;height:${Math.random() * 80 + 20}px;animation-duration:${Math.random() * 1 + 0.5}s;animation-delay:${Math.random() * 3}s`;
-        container.appendChild(drop);
-      }
-    }
-
-    function startClock() {
-      setInterval(() => {
+async function loadAlerts() {
+  // Prefer live auto-alerts (recomputed from live rainfall) over stored alerts
+  try {
+    const data = await apiFetch('/api/v1/alerts/auto');
+    ALERTS = (data || []).map(a => {
+      // Show real timestamp instead of hardcoded 'live'
+      let timeLabel = 'live';
+      if (a.generated_at) {
+        const d = new Date(a.generated_at);
         const now = new Date();
         const el = document.getElementById('nav-clock');
         if (el) el.textContent = now.toLocaleTimeString('en-IN') + ' IST';
@@ -595,7 +485,311 @@
           document.getElementById(id).textContent = '–';
         });
       }
+      const srcBadge = a.weather_source === 'open_meteo' ? '🟢 Live' : '🟡 Cached';
+      return {
+        type:  a.severity === 'CRITICAL' ? 'critical' : 'watch',
+        title: `${a.severity === 'CRITICAL' ? 'RED ALERT' : 'WATCH'} – ${a.ward}, ${a.city}`,
+        sub:   `Score: ${a.score} · ${a.message?.split('—')[1]?.trim() ?? a.risk_class}`,
+        time:  `${timeLabel} · ${srcBadge}`,
+        score: a.score,
+      };
+    });
+  } catch (err) {
+    showApiError('Alerts', err);
+    ALERTS = [];
+  }
+}
 
+async function loadAnalyticsSummary() {
+  const s = await apiFetch('/api/v1/analytics/summary');
+  document.getElementById('ward-count').textContent   = s.total_wards  ?? '–';
+  document.getElementById('city-count').textContent   = s.cities        ?? '–';
+  document.getElementById('avg-score').textContent    = s.avg_readiness_score ?? '–';
+  document.getElementById('analytics-avg').textContent = s.avg_readiness_score ?? '–';
+  document.getElementById('cnt-red').textContent      = s.red_alert     ?? '–';
+  document.getElementById('cnt-amber').textContent    = s.watch_zone    ?? '–';
+  document.getElementById('cnt-green').textContent    = s.safe_zone     ?? '–';
+
+  // Populate analytics cards with live data
+  const peakRainEl = document.getElementById('analytics-peak-rain');
+  if (peakRainEl) peakRainEl.textContent = s.peak_rainfall_mm ? `${s.peak_rainfall_mm}mm` : '–';
+  const drainEl = document.getElementById('analytics-drain-alerts');
+  if (drainEl) drainEl.textContent = s.drainage_alerts ?? '–';
+  const totalEl = document.getElementById('analytics-total-wards');
+  if (totalEl) totalEl.textContent = s.total_wards ?? '40';
+
+  return s;
+}
+
+// ============================================================
+// STARTUP
+// ============================================================
+function init() {
+  // Set current year dynamically in all season labels
+  const currentYear = new Date().getFullYear();
+  ['current-season-year', 'analytics-season-year', 'analytics-rainfall-year'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = currentYear;
+  });
+
+  generateRain();
+  startClock();
+  renderAuthFields();
+}
+
+function generateRain() {
+  const container = document.getElementById('rain-container');
+  for (let i = 0; i < 60; i++) {
+    const drop = document.createElement('div');
+    drop.className = 'rain-drop';
+    drop.style.cssText = `left:${Math.random()*100}%;height:${Math.random()*80+20}px;animation-duration:${Math.random()*1+0.5}s;animation-delay:${Math.random()*3}s`;
+    container.appendChild(drop);
+  }
+}
+
+function startClock() {
+  setInterval(() => {
+    const now = new Date();
+    const el = document.getElementById('nav-clock');
+    if (el) el.textContent = now.toLocaleTimeString('en-IN') + ' IST';
+  }, 1000);
+}
+
+// ============================================================
+// AUTHENTICATION + RBAC
+// ============================================================
+function switchPortal(portal) {
+  currentPortal = portal;
+  document.getElementById('portal-citizen-btn').classList.toggle('active', portal === 'citizen');
+  document.getElementById('portal-authority-btn').classList.toggle('active', portal === 'authority');
+  renderAuthFields();
+}
+
+function switchCitizenAuthMode(mode) {
+  citizenAuthMode = mode;
+  renderAuthFields();
+}
+
+function renderAuthFields() {
+  const container = document.getElementById('auth-fields');
+  if (!container) return;
+
+  if (currentPortal === 'authority') {
+    container.innerHTML = `
+      <div class="login-label">Unique Authority ID</div>
+      <input class="login-input" id="authority-id" type="text" placeholder="AUTH-BBMP-001">
+      <div class="login-label">Password</div>
+      <input class="login-input" id="authority-pass" type="password" placeholder="Enter authority password">
+      <div class="login-help">Only pre-allotted authority IDs are permitted.</div>
+    `;
+    return;
+  }
+
+  const otpPanel = signupSessionId ? `
+    <div class="otp-panel">
+      <div class="login-label">Email OTP</div>
+      <input class="login-input" id="otp-email" type="text" placeholder="6-digit email OTP">
+      <div class="login-label">SMS OTP</div>
+      <input class="login-input" id="otp-sms" type="text" placeholder="6-digit SMS OTP">
+      <button class="secondary-btn" onclick="verifyCitizenOtp()">Verify OTP & Activate</button>
+      <div class="login-help">Enter both OTPs to activate your account.</div>
+      ${pendingOtpHint ? `<div class="login-help">${pendingOtpHint}</div>` : ''}
+    </div>
+  ` : '';
+
+  if (citizenAuthMode === 'signin') {
+    container.innerHTML = `
+      <div class="auth-mode-switch">
+        <button class="mode-btn active" onclick="switchCitizenAuthMode('signin')">Sign In</button>
+        <button class="mode-btn" onclick="switchCitizenAuthMode('signup')">Sign Up</button>
+      </div>
+      <div class="login-label">Username or Gmail</div>
+      <input class="login-input" id="citizen-signin-id" type="text" placeholder="username or yourname@gmail.com">
+      <div class="login-label">Password</div>
+      <input class="login-input" id="citizen-signin-pass" type="password" placeholder="Enter password">
+    `;
+    return;
+  }
+
+  container.innerHTML = `
+    <div class="auth-mode-switch">
+      <button class="mode-btn" onclick="switchCitizenAuthMode('signin')">Sign In</button>
+      <button class="mode-btn active" onclick="switchCitizenAuthMode('signup')">Sign Up</button>
+    </div>
+    <div class="login-label">Username</div>
+    <input class="login-input" id="citizen-signup-user" type="text" placeholder="Choose a username">
+    <div class="login-label">Password</div>
+    <input class="login-input" id="citizen-signup-pass" type="password" placeholder="Set a password">
+    <div class="login-label">Gmail</div>
+    <input class="login-input" id="citizen-signup-email" type="email" placeholder="yourname@gmail.com">
+    <div class="login-label">Phone Number</div>
+    <input class="login-input" id="citizen-signup-phone" type="tel" placeholder="10-digit mobile number">
+    <div class="login-help">Sign up triggers OTP on both email and SMS. Account activates only after both OTPs are verified.</div>
+    ${otpPanel}
+  `;
+}
+
+async function submitAuth() {
+  if (currentPortal === 'authority') {
+    const authorityId = (document.getElementById('authority-id')?.value || '').trim().toUpperCase();
+    const password = (document.getElementById('authority-pass')?.value || '').trim();
+    try {
+      const data = await apiFetch('/api/v1/auth/authority/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ authority_id: authorityId, password })
+      });
+      authToken = data.access_token;
+      currentRole = data.role;
+      document.getElementById('nav-user-name').textContent = data.display_name || authorityId;
+      await doEnterApp();
+    } catch (err) {
+      showToast('error', `Authority login failed: ${err.message}`);
+    }
+    return;
+  }
+
+  if (citizenAuthMode === 'signin') {
+    await citizenSignIn();
+    return;
+  }
+
+  await citizenSignUp();
+}
+
+async function citizenSignUp() {
+  const username = (document.getElementById('citizen-signup-user')?.value || '').trim();
+  const password = (document.getElementById('citizen-signup-pass')?.value || '').trim();
+  const gmail = (document.getElementById('citizen-signup-email')?.value || '').trim().toLowerCase();
+  const phone = (document.getElementById('citizen-signup-phone')?.value || '').trim();
+
+  if (!username || !password || !gmail || !phone) {
+    showToast('error', 'Please fill username, password, Gmail, and phone.');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('/api/v1/auth/citizen/signup', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password, gmail, phone })
+    });
+    signupSessionId = data.signup_id;
+    pendingOtpHint = null;
+    renderAuthFields();
+    showToast('info', `OTP dispatched to ${gmail} and ${phone}.`);
+  } catch (err) {
+    showToast('error', `Citizen signup failed: ${err.message}`);
+  }
+}
+
+async function verifyCitizenOtp() {
+  if (!signupSessionId) {
+    showToast('error', 'No pending signup found. Please sign up again.');
+    return;
+  }
+  const emailOtp = (document.getElementById('otp-email')?.value || '').trim();
+  const smsOtp = (document.getElementById('otp-sms')?.value || '').trim();
+  try {
+    await apiFetch('/api/v1/auth/citizen/verify-otp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ signup_id: signupSessionId, email_otp: emailOtp, sms_otp: smsOtp })
+    });
+    signupSessionId = null;
+    pendingOtpHint = null;
+    citizenAuthMode = 'signin';
+    renderAuthFields();
+    showToast('success', 'Citizen account activated successfully. You can now sign in.');
+  } catch (err) {
+    showToast('error', `OTP verification failed: ${err.message}`);
+  }
+}
+
+async function citizenSignIn() {
+  const identifier = (document.getElementById('citizen-signin-id')?.value || '').trim().toLowerCase();
+  const password = (document.getElementById('citizen-signin-pass')?.value || '').trim();
+  if (!identifier || !password) {
+    showToast('error', 'Please enter username/Gmail and password.');
+    return;
+  }
+
+  try {
+    const data = await apiFetch('/api/v1/auth/citizen/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ identifier, password })
+    });
+    authToken = data.access_token;
+    currentRole = data.role;
+    document.getElementById('nav-user-name').textContent = data.display_name || 'CITIZEN';
+    await doEnterApp();
+  } catch (err) {
+    showToast('error', `Citizen sign in failed: ${err.message}`);
+  }
+}
+
+function applyRbacByRole() {
+  const isAuthority = currentRole === ROLE_AUTHORITY;
+  const allowedTabs = isAuthority ? ['map', 'analytics', 'wards', 'citizen'] : ['citizen'];
+  document.querySelectorAll('.nav-tab').forEach(tabEl => {
+    const tab = tabEl.dataset.tab;
+    const allowed = allowedTabs.includes(tab);
+    tabEl.style.display = allowed ? 'block' : 'none';
+    tabEl.classList.toggle('active', allowed && tab === currentTab);
+  });
+
+  document.getElementById('sidebar').style.display =
+    (isAuthority && (currentTab === 'map' || currentTab === 'wards')) ? 'flex' : 'none';
+  document.querySelectorAll('.admin-only').forEach(el => {
+    el.style.display = isAuthority ? '' : 'none';
+  });
+}
+
+async function doEnterApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').classList.add('visible');
+  currentTab = currentRole === ROLE_AUTHORITY ? 'map' : 'citizen';
+  applyRbacByRole();
+  switchTab(currentTab);
+  showToast('info', '⏳ Loading live data from IMD + ISRO + OSM…');
+
+  try {
+    await loadWards();
+  } catch (err) {
+    showApiError('Ward data', err);
+    // Render empty state rather than crashing
+    document.getElementById('ward-count').textContent = '–';
+    document.getElementById('city-count').textContent = '–';
+    document.getElementById('avg-score').textContent  = '–';
+    ['cnt-red','cnt-amber','cnt-green'].forEach(id => {
+      document.getElementById(id).textContent = '–';
+    });
+  }
+
+  await loadAlerts();
+
+  try {
+    await loadAnalyticsSummary();
+  } catch (err) {
+    showApiError('Analytics summary', err);
+  }
+
+  setTimeout(() => {
+    initMap();
+    initCharts();
+    renderWardTable();
+  }, 100);
+
+  renderAlertFeed();
+  renderTopWards();
+  showToast('success', `✓ VarshaMitra loaded. ${WARDS.length} wards · Live rainfall active.`);
+
+  // Poll for fresh scores every 60 seconds for live updates
+  if (refreshTimerId) clearInterval(refreshTimerId);
+  refreshTimerId = setInterval(async () => {
+    try {
+      await loadWards();
       await loadAlerts();
 
       try {
@@ -689,24 +883,95 @@
       if (ward.cls === 'amber') return '#ff9f0a';
       return '#32d74b';
     }
+    applyRbacByRole();
+  }, 60 * 1000);
+}
 
-    function renderWardMarkers(filter) {
-      if (!floodMap) return;
-      Object.values(wardMarkers).forEach(m => floodMap.removeLayer(m));
-      wardMarkers = {};
-      WARDS.forEach(ward => {
-        if (filter && ward.cls !== filter) return;
-        const color = getMarkerColor(ward);
-        const radius = 8 + (ward.pop / 200000);
-        const marker = L.circleMarker([ward.lat, ward.lng], {
-          radius: Math.min(radius, 18),
-          fillColor: color, color: color,
-          weight: 2, opacity: 0.9, fillOpacity: 0.6
-        });
-        const srcBadge = ward.weatherSrc === 'open_meteo'
-          ? '<span style="color:var(--green);font-size:9px">● Live</span>'
-          : '<span style="color:var(--amber);font-size:9px">● Cached</span>';
-        marker.bindPopup(`
+function doLogout() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app').classList.remove('visible');
+  currentRole = null;
+  authToken = null;
+  currentPortal = 'citizen';
+  citizenAuthMode = 'signin';
+  signupSessionId = null;
+  pendingOtpHint = null;
+  renderAuthFields();
+}
+
+// ============================================================
+// NAVIGATION
+// ============================================================
+function switchTab(tab) {
+  if (currentRole === ROLE_CITIZEN && tab !== 'citizen') return;
+  currentTab = tab;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  ['map','analytics','wards','citizen'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.style.display = t === tab ? 'flex' : 'none';
+  });
+  const isAuthority = currentRole === ROLE_AUTHORITY;
+  document.getElementById('sidebar').style.display = (isAuthority && (tab === 'map' || tab === 'wards')) ? 'flex' : 'none';
+  if (tab === 'analytics' && !analyticsChartsInit) { initAnalyticsCharts(); analyticsChartsInit = true; }
+  if (tab === 'citizen' && !citizenMap) setTimeout(initCitizenMap, 100);
+  if (tab === 'map' && floodMap) setTimeout(() => floodMap.invalidateSize(), 100);
+}
+
+function switchRPanel(panel) {
+  currentRPanel = panel;
+  document.querySelectorAll('.rpanel-tab').forEach(t => t.classList.toggle('active', t.dataset.rpanel === panel));
+  ['detail','chart','actions'].forEach(p => {
+    const el = document.getElementById('rpanel-' + p);
+    if (el) el.style.display = p === panel ? 'block' : 'none';
+  });
+  if (panel === 'chart') updateCharts(selectedWard);
+}
+
+let floodTileLayer = null;
+let citizenTileLayer = null;
+
+function getTileUrl() {
+  return 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+}
+
+function getTileOptions() {
+  return { maxZoom: 18, attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' };
+}
+
+// ============================================================
+// MAP
+// ============================================================
+function initMap() {
+  if (floodMap) { floodMap.invalidateSize(); return; }
+  floodMap = L.map('flood-map', { zoomControl:false, attributionControl:true }).setView([19.076, 78.8], 5);
+  floodTileLayer = L.tileLayer(getTileUrl(), getTileOptions()).addTo(floodMap);
+  L.control.zoom({ position:'bottomright' }).addTo(floodMap);
+  renderWardMarkers();
+}
+
+function getMarkerColor(ward) {
+  if (ward.cls === 'red')   return '#ff453a';
+  if (ward.cls === 'amber') return '#ff9f0a';
+  return '#32d74b';
+}
+
+function renderWardMarkers(filter) {
+  if (!floodMap) return;
+  Object.values(wardMarkers).forEach(m => floodMap.removeLayer(m));
+  wardMarkers = {};
+  WARDS.forEach(ward => {
+    if (filter && ward.cls !== filter) return;
+    const color = getMarkerColor(ward);
+    const radius = 8 + (ward.pop / 200000);
+    const marker = L.circleMarker([ward.lat, ward.lng], {
+      radius: Math.min(radius, 18),
+      fillColor: color, color: color,
+      weight: 2, opacity: 0.9, fillOpacity: 0.6
+    });
+    const srcBadge = ward.weatherSrc === 'open_meteo'
+      ? '<span style="color:var(--green);font-size:9px">● Live</span>'
+      : '<span style="color:var(--amber);font-size:9px">● Cached</span>';
+    marker.bindPopup(`
       <div style="min-width:180px">
         <div class="popup-name">${ward.name}</div>
         <div style="font-size:10px;color:#7090b0;font-family:var(--font-mono)">${ward.city} · Ward ${ward.id} ${srcBadge}</div>

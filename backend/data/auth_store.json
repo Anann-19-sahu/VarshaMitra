@@ -1,0 +1,52 @@
+{
+  "citizens": [],
+  "pending_otps": [
+    {
+      "signup_id": "ef4b50bc1ae37db1",
+      "username": "citizen_bypass",
+      "gmail": "citizen_bypass@gmail.com",
+      "phone": "9234567890",
+      "password_hash": "b7e102d5bab5bf4d$f2781804fe72188843f9f0c96ff4d1313260916c789929256ec35f0d6c8bc88c",
+      "email_otp": "123456",
+      "sms_otp": "123456",
+      "created_at": "2026-03-27T20:12:27.831174",
+      "expires_at": "2026-03-27T20:22:27.831174"
+    },
+    {
+      "signup_id": "3007855cdab29c08",
+      "username": "anann",
+      "gmail": "anannya.sahu13@gmail.com",
+      "phone": "8828268413",
+      "password_hash": "44bbc9cd94477d91$2e88910ba4ad12523a70c5b78d5fa10a51ef1615db490dc8ff42d120991e081b",
+      "email_otp": "123456",
+      "sms_otp": "123456",
+      "created_at": "2026-03-27T20:14:12.181121",
+      "expires_at": "2026-03-27T20:24:12.181121"
+    },
+    {
+      "signup_id": "4a0ac2b418dc82db",
+      "username": "env_mode_user",
+      "gmail": "env_mode_user@gmail.com",
+      "phone": "9345678901",
+      "password_hash": "30db741b91508716$2efa47b44fcfc1a3de933d5d3015f9e0c9ad4dcd8d48f87f23e8f4237656e415",
+      "email_otp": "123456",
+      "sms_otp": "123456",
+      "created_at": "2026-03-27T20:16:53.249380",
+      "expires_at": "2026-03-27T20:26:53.249380"
+    }
+  ],
+  "authorities": {
+    "AUTH-BBMP-001": {
+      "name": "BBMP CONTROL ROOM",
+      "password_hash": "4cc22f1c80b43822$ebb0e9283bc1f60df0b9a08b30405c4554cc942f1d00c7a6b249435fb02a62fb"
+    },
+    "AUTH-BMC-002": {
+      "name": "BMC FLOOD CELL",
+      "password_hash": "ad373107a8d38c58$4f41efa4ed8fc67960a1a022c0c8ea6ecef686184a357a6f716bd7f58d03bd5c"
+    },
+    "AUTH-DMA-003": {
+      "name": "STATE DMA OPS",
+      "password_hash": "4488cb4088dfbe0d$0b66bce5eb78a72f04405ef90f702fbf619019a503a4a5ba9e0023554062c2da"
+    }
+  }
+}

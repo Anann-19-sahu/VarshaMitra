@@ -5,3 +5,9 @@ psycopg2-binary
 requests
 asyncpg
 httpx
+sqlalchemy
+passlib[bcrypt]
+bcrypt
+python-jose
+python-dotenv
+email-validator

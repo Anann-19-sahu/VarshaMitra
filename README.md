@@ -1,4 +1,4 @@
-# 🌊 VarshaMitra – Pre-Monsoon Flood Intelligence Platform
+#  VarshaMitra – Pre-Monsoon Flood Intelligence Platform
 
 > Government-grade flood prediction intelligence for Indian cities.
 > Analyzes IMD rainfall, ISRO CartoDEM elevation, OSM drainage, and NDMA flood history to generate **Ward Flood Readiness Scores (0–100)**.

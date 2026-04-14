@@ -80,27 +80,13 @@ docker compose up -d
 ### 3. Initialize Database
 The database schema is automatically applied on first startup via Docker entrypoint.
 
-### 4. Access Services
-| Service | URL | Description |
-|---------|-----|-------------|
-| Frontend Dashboard | http://localhost | Main web interface |
-| API Documentation | http://localhost:8000/docs | FastAPI interactive docs |
-| API Health Check | http://localhost:8000/api/v1/health | Service status |
-| Ollama API | http://localhost:11434 | Local LLM endpoint |
-| Flower (Celery Monitor) | http://localhost:5555 | Task queue monitoring |
-
-### 5. Optional: Train ML Model
+### 4. Optional: Train ML Model
 ```bash
 # Access the running API container
 docker exec -it varsha_api bash
 
 # Run ML training (requires data files)
 cd ml && python scoring_engine.py
-```
-| Celery Monitor | http://localhost:5555 |
-| Ollama API | http://localhost:11434 |
-
----
 
 ## 🖥️ Frontend Features
 
